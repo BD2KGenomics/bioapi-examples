@@ -38,7 +38,7 @@ def echo_route(echostring):
 # `combine_apis.py`.
 
 EXAC_BASE_URL = "http://exac.hms.harvard.edu/rest/"
-GA4GH_BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-example-data/"
+GA4GH_BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-count1-data/"
 
 @app.route('/gene/<gene_name>')
 def gene_route(gene_name):
@@ -48,7 +48,11 @@ def gene_route(gene_name):
     # Note that we aren't handling cases when the gene isn't found. The ExAC
     # API uses redirects to locate the gene of interest. Better error handling
     # is left as an exercise.
-
+    
+    print("Looking for " + str(gene_name))
+    
+    print("If this hangs forever ctrl-c to quit :)")
+    
     response = requests.get(
         EXAC_BASE_URL + "awesome?query=" + gene_name + "&service=variants_in_gene")
 
@@ -60,14 +64,31 @@ def gene_route(gene_name):
 
     # As in `combine_apis` we'll get all the variants from the GA4GH
     # variant set.
+    
+    # We can refine our search by getting the range of positions 
+    # from the ExAC variants.
+    
+    min_start = 2**32
+    max_start = 0
+    chrom = "1"
+    
+    for variant in exac_variants:
+        if variant['pos'] > max_start:
+            max_start = variant['pos']
+        if variant['pos'] < min_start:
+            min_start = variant['pos']
+        chrom = variant['chrom']
+
+
+    print("Range: " + str(min_start) + ":" + str(max_start) + " on chrom " + chrom)
 
     c = client.HttpClient(GA4GH_BASE_URL)
 
     ga4gh_variants = [v for v in c.searchVariants(
         c.searchVariantSets(c.searchDatasets().next().id).next().id,
-        start=0,
-        end=2**32,
-        referenceName="1")]
+        start=min_start,
+        end=max_start,
+        referenceName=chrom)]
 
     # We'll find if there are any matches and return them.
     # Matches is a list of tuples, the first of each tuple
@@ -81,24 +102,9 @@ def gene_route(gene_name):
             # Note that GA4GH positions are 0-based so we add
             # 1 to line it up with ExAC.
             if (ga4gh_variant.start + 1) == exac_variant['pos']:
-                print(exac_variant['pos'])
-                print(ga4gh_variant.start)
                 matches.append((ga4gh_variant.toJsonDict(), exac_variant))
 
-    # GA4GH variants return the calls that are stored within
-    # that variant set. Let's filter out the call set names
-    # for when a given sample has at least one genotype
-    # called for each variant.
-
-    result = {}
-
-    for match in matches:
-        for call in match[0]['calls']:
-            if call['genotype'][0] or call['genotype'][1]:
-                result[call['callSetName']] = match
-
-    # This result dictionary tells us the samples for which
-    # variants on the requested gene have been found.
+    print("Found " + str(len(matches)) + " matches.")
 
     # You can point a web browser at this address to see some results:
     # http://localhost:5000/gene/or4f5
@@ -107,12 +113,12 @@ def gene_route(gene_name):
     # from ExAC and GA4GH, you may use this web service in the same
     # way we used ExAC or GA4GH in the hello_ examples.
 
-    # response = requests.get("http://localhost:5000/gene/or45")
+    # response = requests.get("http://localhost:5000/gene/or4f5")
     # response_data = response.json()
-    # for result in response_data['results']:
+    # for result in response_data['matches']:
     #   print result
 
-    return flask.jsonify({"gene_name": gene_name, "results": result})
+    return flask.jsonify({"gene_name": gene_name, "matches": matches})
 
 if __name__ == '__main__':
     app.debug = True  # helps us figure out if something went wrong
