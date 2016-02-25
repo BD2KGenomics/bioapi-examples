@@ -10,7 +10,7 @@ import ga4gh.client as client
 import requests
 
 EXAC_BASE_URL = "http://exac.hms.harvard.edu/rest/"
-GA4GH_BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-example-data/"
+GA4GH_BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-count1-data/"
 
 def main():
     # Let's instantiate the GA4GH client first
@@ -23,7 +23,7 @@ def main():
     ga4gh_variants = [v for v in c.searchVariants(
         c.searchVariantSets(c.searchDatasets().next().id).next().id,
         start=0,
-        end=2**32,
+        end=1000000,
         referenceName="1")]
 
     print(str(len(ga4gh_variants)) + " GA4GH variants.")
@@ -53,7 +53,7 @@ def main():
                 print(ga4gh_variant.start)
                 matches.append((ga4gh_variant, OR4F5_variant))
 
-    print("Found " + str(len(matches)) + " matches.")
+    print("Found " + str(len(matches)) + " matches!")
 
     for match in matches:
         print(match[0].names)

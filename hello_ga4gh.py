@@ -21,7 +21,7 @@ import json
 # remote server. It allows us to compose more complicated
 # requests by adding to the end of the string.
 
-BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-example-data/"
+BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-count1-data/"
 
 # This global points the specific "endpoint" that will
 # handle our request.
@@ -110,8 +110,8 @@ def main():
 
     payload = {
         "variantSetId": variant_set['id'],
-        "start": 0,             # genomic position
-        "end": 2**32,           # genomic position
+        "start": 100000,             # genomic position
+        "end": 900000,           # genomic position
         "referenceName": "1",    # the contig we want to search on
         "pageToken": None       # start at the first page
     }
@@ -150,7 +150,7 @@ def main():
         for variant in response_data['variants']:
             variants.append(variant)
 
-    # We'll count the lengths different reference bases that our search
+    # We'll count the lengths variant reference bases that our search
     # encompassed by storing them in this dictionary.
 
     reference_base_counts = {}
