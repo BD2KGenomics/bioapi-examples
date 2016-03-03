@@ -74,6 +74,14 @@ Access a GA4GH reference server using a (provided) client, making some operation
 
 Get data from a remote web service and visualize it using matplotlib.
 
+# find_nonreference_samples_for_variant.py
+
+TODO
+
+# hello_ga4gh_brca1.py
+
+TODO
+
 ### combine_apis.py
 
 Use data from two web services to produce synthetic results.
