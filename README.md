@@ -62,6 +62,10 @@ Access a GA4GH reference server hosting bioinformatics data and see the basics o
 
 Access an API hosting population genomics data and a query service for finding variants in a gene.
 
+### hello_nhanes.py
+
+A demonstration of using the IRCT PIC-SURE API for NHANES data. It gathers patient blood pressure data by demographic.
+
 ### hello_ga4gh_client.py
 
 Access a GA4GH reference server using a (provided) client, making some operations easier.
