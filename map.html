@@ -1,10 +1,8 @@
-
-<!DOCTYPE html>
 <html>
 <head>
-	
-	<title>CRS.Simple example - Leaflet</title>
-
+    <title>Thousand Genomes Variant Set Demo</title>
+    <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
@@ -12,8 +10,22 @@
 
 	<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
 	<script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
-  <script type="text/javascript" src="L.SimpleGraticule.js"></script>
+  <script type="text/javascript" src="leaflet.label.js"></script>
+  <script type="text/javascript" src="L.Graticule.js"></script>
+  <script type="text/javascript" src="webgl-heatmap.js"></script>
+  <script type="text/javascript" src="webgl-heatmap-leaflet.js"></script>
 	<style>
+  .leaflet-container {
+      background: #111;
+  }
+  .leaflet-grid-label {
+    color: #fefefe;
+  }
+  div.leaflet-label {
+    color: #efefef;
+    font-size: 8pt;
+    font-family: monospace;
+  }
 		#map {
 			width:100%;
 			height: 100%;
@@ -28,10 +40,28 @@
 	
 </head>
 <body>
-
+<body style="padding-left: 0%; padding-right: 0%; font-family: sans-serif; margin: 0; padding: 0">
+  <nav class="navbar navbar-default navbar-fixed-top">
+    <div class="container-fluid">
+      <div class="navbar-form navbar-left" role="search">
+        <div class="form-group">
+          <input type="text" class="form-control" placeholder="URL" id="url" value="http://1kgenomes.ga4gh.org/">
+          <input type="text" class="form-control" placeholder="start" id="start" value="0">
+          <input type="text" class="form-control" placeholder="chrom" id="chrom" value="1">
+        </div>
+        <button class="btn btn-default" onmouseup="start()">Submit</button>
+      </div>
+    </div>
+  </nav>
 <div id='map'></div>
 
 <script>
+function start() {
+  map.setView([1000 * Number($("#chrom").val() - 1) - 500, Number($("#start").val())]);
+  map.setZoom(0);
+  updateView()
+}
+
 $("#map").height(window.innerHeight)
 $(function() {
     $.xhrPool = [];
@@ -51,38 +81,93 @@ $(function() {
 })
 	var map = L.map('map', {
 		crs: L.CRS.Simple,
-    minZoom: -Infinity
+    minZoom: -Infinity,
+    zoomControl: false,
+    maxBounds: L.latLngBounds([-5000,0], [23000, Math.pow(2,58)]),
 	});
-
+  var options = {redraw: 'move',
+                  showOriginLabel: false,
+                 zoomIntervals: [
+                  {start: -Infinity, end: -4, interval: 1000},
+              ]};
+  
+  L.control.scale().addTo(map);
+  var heatmap = new L.webGLHeatmap({
+    size: 1e7
+  });
+  new L.Control.Zoom({ position: 'bottomleft' }).addTo(map);
 	var bounds = [[0,0], [1,1000]];
-	var image = L.imageOverlay('uqm_map_full.png', bounds).addTo(map);
+	var image = L.imageOverlay('http://research.pbsci.ucsc.edu/eeb/cjlaw/wp-content/uploads/2013/11/UCSC-logo.png', bounds).addTo(map);
   map.setView([0,0], -4);
 	//map.fitBounds(bounds);
   var baseurl = "http://1kgenomes.ga4gh.org/";
   var l = 2504;//window.innerWidth;
   var threshold = 0.8 * l;
-  var url = "variants/search"
-  map.on('mouseup', function(){
+  var url = "variants/search";
+  function splitGenomic(query, n, fn) {
+    var width = query.end - query.start;
+    for (var i = 0; i < n; i ++) {
+      var frac = width / n;
+      var nq = query;
+      nq.start = Math.floor(i * frac + query.start);
+      nq.end = Math.ceil((i + 1) * frac + query.start);
+      //console.log(nq)
+      window.requestAnimationFrame(function() {
+        window.setTimeout(function() {fn(nq)}, i * 5);
+      })
+    }
+  }
+  var init = true;
+  function updateView() {
     console.log('drop')
     $.xhrPool.abortAll();
     console.log(map.getBounds().getNorth(), map.getBounds().getSouth());
     console.log(map.getBounds().getWest(), map.getBounds().getEast());
-    for (var i = 1; i < 23; i++) {
-      pageVariants({
+    var left = Math.floor(map.getBounds().getWest());
+    var right = Math.floor(map.getBounds().getEast())
+    var chromWindow = [Math.max(0, Math.floor(map.getBounds().getSouth() / 1000)), Math.ceil(map.getBounds().getNorth() / 1000)];
+    console.log("chromwindow" + chromWindow);
+    
+    map.addLayer( heatmap );
+    for (var i = chromWindow[0]; i < chromWindow[1]; i++) {
+      splitGenomic({
           "variantSetId": "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ",
-          "start": map.getBounds().getWest(),
-          "end": map.getBounds().getEast(),
+          "start": left,
+          "end": right,
           "referenceName": String(i),
           "callSetIds": [],
-          "pageSize": 5
-        });
-        pageFeatures({"featureSetId": "WyIxa2dlbm9tZXMiLCJnZW5jb2RlX3YyNGxpZnQzNyJd", "start": map.getBounds().getWest(), "end": map.getBounds().getEast(), "parentId": "", "featureTypes": [], "referenceName": "chr" + i})
+        "pageSize": 2
+        }, 2, pageVariants);
+        splitGenomic({
+          "featureSetId": "WyIxa2dlbm9tZXMiLCJnZW5jb2RlX3YyNGxpZnQzNyJd",
+          "start": left, "end": right,
+          "pageSize": 1,
+          "parentId": "",
+          "featureTypes": ['gene'], "referenceName": "chr" + i}, 2, pageFeatures)
     }
-
+    if (init) {
+      L.simpleGraticule(options).addTo(map);
+      init = false;
+    }
+    
+  }
+  map.on('mouseup', function(){
+    window.requestAnimationFrame(function() {
+      updateView()
+    });
+    $("#start").val((map.getBounds().getEast() - map.getBounds().getWest()) / 2 + map.getBounds().getWest())
   })
   map.on('mousedown', function(){
     console.log('cancelling')
-    $.xhrPool.abortAll();
+    window.requestAnimationFrame(function() {
+      $.xhrPool.abortAll();
+    })
+  })
+  map.on('drag', function(){
+    console.log('cancelling')
+    window.requestAnimationFrame(function() {
+      $.xhrPool.abortAll();
+    })
   })
   function getVariants(query, callback) {
     return $.ajax(baseurl + "variants/search", {
@@ -96,32 +181,42 @@ $(function() {
   var features = {};
   function pageFeatures(query) {
     getFeatures(query, function(res) {
-      res.features.forEach(function(feature) {
-        if (typeof features[feature.id] === "undefined") {
-          var height = Number(feature.referenceName.substring(3, feature.referenceName.length)) * 10000;
-          //console.log(height)
-          features[feature.id] = Object.keys(features).length;
-          var polygon
-          try {
-            polygon = L.polygon([
-                          [height + 1000, feature.start],
-                          [height + 1000, feature.end],
-                          [height + -1000, feature.end],
-                          [height + -1000, feature.start]
-                      ])
-          } catch (err){
-            console.log(err)
+      window.requestAnimationFrame(function(){
+        res.features.forEach(function(feature) {
+          if (typeof features[feature.id] === "undefined") {
+            var height = Number(feature.referenceName.substring(3, feature.referenceName.length)) * 1000;
+            //console.log(height)
+            features[feature.id] = Object.keys(features).length;
+            var polygon;
+            try {
+              polygon = L.polygon([
+                            [height + 50, feature.start],
+                            [height + 50, feature.end],
+                            [height - 50, feature.end],
+                            [height - 50, feature.start]
+                        ])
+            } catch (err){
+              console.log(err)
+            }
+            var highlightStyle = {
+                color: '#2262CC', 
+                weight: 3,
+                opacity: 0.6,
+                fillOpacity: 0.65,
+                fillColor: '#2262CC'
+            };
+            polygon.setStyle({fillColor: '#FFFFFF', color: '#FFFFFF', borderOpacity: 1, fillOpacity: 0, opacity: 1, color: '#FFFFFF', weight: 1.0});
+            polygon.bindPopup(JSON.stringify(feature)).bindLabel(feature.attributes.vals['gene_name'][0], { noHide: true });
+            polygon.addTo(map);
           }
-          polygon.setStyle({fillColor: '#FFFFFF', borderColor: '#FFFFFF', borderOpacity: 1, fillOpacity: 0, opacity: 1, color: '#FFFFFF'});
-          polygon.bindPopup(JSON.stringify(feature));
-          polygon.addTo(map);
-        }
 
+        })
       })
+
       if (res.nextPageToken) {
         var nq = query;
         nq.pageToken = res.nextPageToken;
-        setTimeout(function(){ pageFeatures(nq); }, 1000);
+        setTimeout(function(){ pageFeatures(nq); }, 10);
       } else {
         // assuming we are served in order
         console.log("done");
@@ -129,19 +224,26 @@ $(function() {
     })
   }
   var variants = {};
+  var v = [];
   function updateVariants(res) {
     res.variants.forEach(function(variant) {
       if (typeof variants[variant.id] === "undefined") {
-        var height = Number(variant.referenceName) * 100;
+        var height = Number(variant.referenceName) * 1000;
+        
+        if (v.length > 1000000) {
+          v.shift();
+        }
+        v.push([height, variant.start, 0.1])
+        heatmap.setData(v);
         //console.log(height)
         variants[variant.id] = Object.keys(variants).length;
         var polygon = L.polygon([
-            [height + Number(variant.info['AF'][0]) * 10, variant.start],
-            [height + Number(variant.info['AF'][0]) * 100, variant.end],
-            [height + -Number(variant.info['AF'][0]) * 100, variant.end],
-            [height + -Number(variant.info['AF'][0]) * 100, variant.start]
+            [10 + height + Number(variant.info['AF'][0]) * 100, variant.start],
+            [10 + height + Number(variant.info['AF'][0]) * 100, variant.end],
+            [-10 + height + -Number(variant.info['AF'][0]) * 100, variant.end],
+            [-10 + height + -Number(variant.info['AF'][0]) * 100, variant.start]
         ])
-        polygon.setStyle({fillColor: '#FF0000', borderColor: '#FFFFFF', fillOpacity: 0, opacity: 1});
+        polygon.setStyle({fillColor: '#FF0000', color: '#00FFFF', fillOpacity: 0.8, opacity: 1, weight: 0.8});
         polygon.bindPopup(JSON.stringify(variant));
         polygon.addTo(map);
       }
@@ -169,8 +271,8 @@ $(function() {
       if (res.nextPageToken) {
         var nq = query;
         nq.pageToken = res.nextPageToken;
-        nq.pageSize = 5;
-        setTimeout(function(){ pageVariants(nq); }, 1000);
+        nq.pageSize = 2;
+        setTimeout(function(){ pageVariants(nq); }, 10);
       } else {
         // assuming we are served in order
         console.log("done");
@@ -178,6 +280,7 @@ $(function() {
     })
   })
   }
+  
   // pageVariants({
   //     "variantSetId": "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ",
   //     "start": 0,
@@ -185,6 +288,9 @@ $(function() {
   //     "referenceName": "1",
   //     "pageSize": 5
   //   });
+$(document).ready(function(){
+  updateView();
+})
 </script>
 
 
