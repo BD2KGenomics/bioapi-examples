@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+	
+	<title>CRS.Simple example - Leaflet</title>
+
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
+	<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+
+	<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+	<script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+  <script type="text/javascript" src="L.SimpleGraticule.js"></script>
+	<style>
+		#map {
+			width:100%;
+			height: 100%;
+		}
+    body { 
+      padding: 0;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+    }
+	</style>
+	
+</head>
+<body>
+
+<div id='map'></div>
+
+<script>
+$("#map").height(window.innerHeight)
+$(function() {
+    $.xhrPool = [];
+    $.xhrPool.abortAll = function() {
+        $(this).each(function(i, jqXHR) {   //  cycle through list of recorded connection
+            jqXHR.abort();  //  aborts connection
+            $.xhrPool.splice(i, 1); //  removes from list by index
+        });
+    }
+    $.ajaxSetup({
+        beforeSend: function(jqXHR) { $.xhrPool.push(jqXHR); }, //  annd connection to list
+        complete: function(jqXHR) {
+            var i = $.xhrPool.indexOf(jqXHR);   //  get index for current connection completed
+            if (i > -1) $.xhrPool.splice(i, 1); //  removes from list by index
+        }
+    });
+})
+	var map = L.map('map', {
+		crs: L.CRS.Simple,
+    minZoom: -Infinity
+	});
+
+	var bounds = [[0,0], [1,1000]];
+	var image = L.imageOverlay('uqm_map_full.png', bounds).addTo(map);
+  map.setView([0,0], -4);
+	//map.fitBounds(bounds);
+  var baseurl = "http://1kgenomes.ga4gh.org/";
+  var l = 2504;//window.innerWidth;
+  var threshold = 0.8 * l;
+  var url = "variants/search"
+  map.on('mouseup', function(){
+    console.log('drop')
+    $.xhrPool.abortAll();
+    console.log(map.getBounds().getNorth(), map.getBounds().getSouth());
+    console.log(map.getBounds().getWest(), map.getBounds().getEast());
+    for (var i = 1; i < 23; i++) {
+      pageVariants({
+          "variantSetId": "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ",
+          "start": map.getBounds().getWest(),
+          "end": map.getBounds().getEast(),
+          "referenceName": String(i),
+          "callSetIds": [],
+          "pageSize": 5
+        });
+        pageFeatures({"featureSetId": "WyIxa2dlbm9tZXMiLCJnZW5jb2RlX3YyNGxpZnQzNyJd", "start": map.getBounds().getWest(), "end": map.getBounds().getEast(), "parentId": "", "featureTypes": [], "referenceName": "chr" + i})
+    }
+
+  })
+  map.on('mousedown', function(){
+    console.log('cancelling')
+    $.xhrPool.abortAll();
+  })
+  function getVariants(query, callback) {
+    return $.ajax(baseurl + "variants/search", {
+        data : JSON.stringify(query),
+        contentType : 'application/json',
+        type : 'POST',
+        success: callback,
+        dataType: 'json'
+    });
+  }
+  var features = {};
+  function pageFeatures(query) {
+    getFeatures(query, function(res) {
+      res.features.forEach(function(feature) {
+        if (typeof features[feature.id] === "undefined") {
+          var height = Number(feature.referenceName.substring(3, feature.referenceName.length)) * 10000;
+          //console.log(height)
+          features[feature.id] = Object.keys(features).length;
+          var polygon
+          try {
+            polygon = L.polygon([
+                          [height + 1000, feature.start],
+                          [height + 1000, feature.end],
+                          [height + -1000, feature.end],
+                          [height + -1000, feature.start]
+                      ])
+          } catch (err){
+            console.log(err)
+          }
+          polygon.setStyle({fillColor: '#FFFFFF', borderColor: '#FFFFFF', borderOpacity: 1, fillOpacity: 0, opacity: 1, color: '#FFFFFF'});
+          polygon.bindPopup(JSON.stringify(feature));
+          polygon.addTo(map);
+        }
+
+      })
+      if (res.nextPageToken) {
+        var nq = query;
+        nq.pageToken = res.nextPageToken;
+        setTimeout(function(){ pageFeatures(nq); }, 1000);
+      } else {
+        // assuming we are served in order
+        console.log("done");
+      }
+    })
+  }
+  var variants = {};
+  function updateVariants(res) {
+    res.variants.forEach(function(variant) {
+      if (typeof variants[variant.id] === "undefined") {
+        var height = Number(variant.referenceName) * 100;
+        //console.log(height)
+        variants[variant.id] = Object.keys(variants).length;
+        var polygon = L.polygon([
+            [height + Number(variant.info['AF'][0]) * 10, variant.start],
+            [height + Number(variant.info['AF'][0]) * 100, variant.end],
+            [height + -Number(variant.info['AF'][0]) * 100, variant.end],
+            [height + -Number(variant.info['AF'][0]) * 100, variant.start]
+        ])
+        polygon.setStyle({fillColor: '#FF0000', borderColor: '#FFFFFF', fillOpacity: 0, opacity: 1});
+        polygon.bindPopup(JSON.stringify(variant));
+        polygon.addTo(map);
+      }
+
+    })
+  }
+
+  function getFeatures(query, callback) {
+    return $.ajax(baseurl + "features/search", {
+        data : JSON.stringify(query),
+        contentType : 'application/json',
+        type : 'POST',
+        success: callback,
+        dataType: 'json'
+    });
+  }
+  function pageVariants(query) {
+    // set start to equal end and split multiple requests
+    var d = (new Date()).getTime();
+    window.requestAnimationFrame(function() {
+      getVariants(query, function(res) {
+      //console.log("Got " + res.variants.length + " variants in " + ((new Date()).getTime() - d))
+      d = (new Date()).getTime();
+      updateVariants(res);
+      if (res.nextPageToken) {
+        var nq = query;
+        nq.pageToken = res.nextPageToken;
+        nq.pageSize = 5;
+        setTimeout(function(){ pageVariants(nq); }, 1000);
+      } else {
+        // assuming we are served in order
+        console.log("done");
+      }
+    })
+  })
+  }
+  // pageVariants({
+  //     "variantSetId": "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ",
+  //     "start": 0,
+  //     "end": 1231132,
+  //     "referenceName": "1",
+  //     "pageSize": 5
+  //   });
+</script>
+
+
+
+</body>
+</html>
