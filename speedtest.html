@@ -1,0 +1,126 @@
+<html>
+<head>
+    <title>Thousand Genomes Variant Set Demo</title>
+    <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
+</head>
+<body style="padding-left: 0%; padding-right: 0%; font-family: sans-serif; margin: 0; padding: 0">
+url<input type="text" id="url" placeholder="url" value="http://1kgenomes.ga4gh.org/">
+vsetid<input type="text" id="variantSetId" placeholder="variantSetId" value="WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ">
+pagesize<input type="text" id="pageSize" placeholder="pageSize" value="10">
+threads<input type="text" id="threads" placeholder="threads" value="10">
+<button id="go" onmouseup="start();">Go</button>
+<ul>
+  <div id="avg"></div>
+<div id="vs"></div>
+<div id="tv"></div>
+<div id="cs"></div>
+<div id="tc"></div>
+<div id="datal"></div>
+</ul>
+<script>
+var baseurl = "http://1kgenomes.ga4gh.org/";
+var c = document.getElementById("c");
+var l = 300;//window.innerWidth;
+var threshold = 0.8 * l;
+var url = "variants/search"
+function getVariants(query, callback) {
+  return $.ajax(baseurl + "variants/search", {
+      data : JSON.stringify(query),
+      contentType : 'application/json',
+      type : 'POST',
+      success: callback,
+      dataType: 'json'
+  });
+}
+
+var variants = {};
+
+var avg = [0];
+var roll = 100;
+var st = 0;
+var calls = 0;
+var datal = 0;
+function pageVariants(query) {
+  // set start to equal end and split multiple requests
+  var d = (new Date()).getTime();
+  return getVariants(query, function(res) {
+    var t = (new Date()).getTime() - d;
+    console.log("Got " + res.variants.length + " variants in " + t);
+    datal += JSON.stringify(res).length;
+    console.log(res.length);
+    if (avg.length > roll - 1){
+      avg.shift()
+    }
+    if (avg.length < roll){
+      avg.push(t);
+    }
+    
+    var cc = avg.reduce(function(prev, cur) {
+      return (prev + cur);
+    }) / avg.length;
+    console.log(avg);
+    $("#avg").html(Math.floor(cc) + "ms per request");
+    res.variants.forEach(function(variant) {
+      if (typeof variants[variant.id] === "undefined") {
+        variants[variant.id] = variant.calls.length;
+      }
+      calls += variant.calls.length;
+    })
+    var vsper = Math.floor(1000 * Object.keys(variants).length / ((new Date()).getTime() - st));
+    var csper = Math.floor(1000 * calls / ((new Date()).getTime() - st));
+    $("#vs").html(vsper + " variants per second");
+    $("#tv").html(Object.keys(variants).length + " total variants");
+    
+    $("#cs").html(csper + " calls per second");
+    $("#tc").html(calls + " total calls");
+    $("#datal").html(datal / 1000000 + " total MB");
+    if (res.nextPageToken) {
+      var nq = query;
+      nq.pageToken = res.nextPageToken;
+      setTimeout(function(){ pageVariants(nq); }, 10);
+    } else {
+      // assuming we are served in order
+      console.log("done");
+    }
+  })
+}
+
+var requests = [];
+
+function splitCall(query, n, leng) {
+  for (var i = 0; i < n; i ++) {
+    var frac = leng / n;
+    query['callSetIds'] = callSetIds.slice(i * frac, (i + 1) * frac);
+    pageVariants(query);
+  }
+}
+var callSetIds = [];
+function start() {
+  st = (new Date()).getTime();
+  var variantSetId = document.getElementById('variantSetId').value;
+  var pageSize = Number(document.getElementById('pageSize').value);
+  var threads = Number(document.getElementById('threads').value);
+  baseurl = document.getElementById('url').value;
+  var query = {"variantSetId": variantSetId,
+      "start": 0,
+      "end": 1231132,
+      "referenceName": "1",
+      "pageSize": 1
+    };
+    getVariants(query, function(res) {
+  callSetIds = res.variants[0].calls.map(function(call) {
+    return call.callSetId;
+  });
+  console.log(callSetIds);
+  query['pageSize'] = pageSize;
+  splitCall(query, threads, l);
+  });
+}
+
+
+
+  
+// populate an interface to make a selection of callsetids
+// and reference name
+
+</script>

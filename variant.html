@@ -1,0 +1,134 @@
+<html>
+<head>
+    <title>Thousand Genomes Variant Set Demo</title>
+    <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+</head>
+<body style="padding-left: 0%; padding-right: 0%; font-family: sans-serif; margin: 0; padding: 0">
+  <nav class="navbar navbar-default">
+    <div class="container-fluid">
+      <div class="navbar-form navbar-left" role="search">
+        <div class="form-group">
+          <input type="text" class="form-control" placeholder="URL" id="url" value="http://1kgenomes.ga4gh.org/">
+          <input type="text" class="form-control" placeholder="Variant ID" id="variantId" value="WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiLCIxIiwiMTA2MTUiLCI0Njg2ZjQzZDQ0NDM1MTZmZDExYjljOGE4YmY5NDFhOSJd">
+        </div>
+        <button class="btn btn-default" onmouseup="start()">Submit</button>
+      </div>
+    </div>
+  </nav>
+<div class="container-fluid">
+  <div>
+  <table id="variant" class="table-hover table-striped table-condensed table">
+    <tr margin="padding: 5px">
+      <th>Chrom</th>
+      <th>Pos</th>
+      <th>Names</th>
+      <th>Reference</th>
+      <th>Alts</th>
+      <th>Allele frequency</th>
+    </tr>
+    <tr id="placeh">
+      <td colspan="7">Loading...</td>
+    </tr>
+    <tr id="v">
+    </tr>
+  </table>
+  </div>
+  <canvas id="callmatrix" width="2504" height="2504" style="background: black">Your browser does not support canvas</canvas>
+</div?>
+<script>
+var baseurl = "http://1kgenomes.ga4gh.org/";
+var calls = [];
+var c = document.getElementById("callmatrix");
+var ctx = c.getContext("2d");
+var c = document.getElementById("c");
+
+function start() {
+  var variantId = $('#variantId').val();
+  baseurl = $('#url').val();
+  getVariant(variantId, drawVariant);
+}
+
+function variantRow(variant) {
+  html = "";
+  html += "<td>" + variant.referenceName + "</td>";
+  html += "<td>" + variant.start + "</td>";
+  html += "<td>" + variant.names + "</td>";
+  var referenceBases = variant
+    .referenceBases
+    .replace(/A/g, "<span class='A'>A</span>")
+    .replace(/T/g, "<span class='T'>T</span>")
+    .replace(/G/g, "<span class='G'>G</span>")
+    .replace(/C/g, "<span class='Cy'>C</span>")
+  
+  var alternateBases = variant
+    .alternateBases.join(',')
+    .replace(/A/g, "<span class='A'>A</span>")
+    .replace(/T/g, "<span class='T'>T</span>")
+    .replace(/G/g, "<span class='G'>G</span>")
+    .replace(/C/g, "<span class='Cy'>C</span>")
+  html += "<td style=\"overflow: scroll\"><small>" + referenceBases + "</small></td>";
+  html += "<td style=\"overflow: scroll\"><small>" + alternateBases + "</small></td>";
+  html += "<td style=\"font-family:monospace;\">" + Math.floor((10000 * variant.info["AF"])) / 100 + "%</td>";
+  return html;
+}
+
+
+
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
+function drawVariant(variant) {
+  console.log("got variant");
+  console.log(variant);
+  $("#v").html(variantRow(variant));
+  $("#placeh").hide();
+  var csIds = variant.calls.map(function(call, i) {
+    
+    calls.push(call);
+
+    return call.callSetId;
+  });
+  console.log(calls);
+  for (var i = 0; i < 600; i++) {
+    for (var j = 0; j < 600; j++) {
+      var r = ((calls[j].genotype[0] || calls[j].genotype[1]) && (calls[i].genotype[0] || calls[i].genotype[1])) * 255;
+      var g = ((calls[j].genotype[0] && calls[j].genotype[1]) && !(calls[i].genotype[0] && calls[i].genotype[1])) * 255;
+      var b = 0;
+      var a = 255;
+      ctx.fillStyle = "rgba("+r+","+g+","+b+","+(a/255)+")";
+      ctx.fillRect( i, j, 1, 1 );
+    }
+  }
+}
+
+function getVariant(id, callback) {
+  return $.ajax(baseurl + "variants/" + id, {
+      contentType : 'application/json',
+      type : 'GET',
+      success: callback,
+      dataType: 'json'
+  });
+}
+
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
+$("#variantId").val(getParameterByName("v"));
+start();
+
+</script>
