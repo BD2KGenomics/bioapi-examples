@@ -278,7 +278,7 @@ map.on('drag', function(){
   })
   console.log(map.getCenter())
   var chro = Math.max(1, Math.ceil((map.getCenter().lat) / 1000))
-  var positionHtml = chrom + ":" + Math.floor(map.getBounds().getWest()) + "-" + Math.floor(map.getBounds().getEast())
+  var positionHtml = chro + ":" + Math.floor(map.getBounds().getWest()) + "-" + Math.floor(map.getBounds().getEast())
   $("#curposition").html(positionHtml);
 })
 
