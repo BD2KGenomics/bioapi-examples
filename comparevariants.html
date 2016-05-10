@@ -43,7 +43,7 @@
           <input type="text" class="form-control" placeholder="URL" id="url" value="http://1kgenomes.ga4gh.org/">
           <input type="text" class="form-control" placeholder="Variant Set ID" id="variantSetId" value="WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ">
           <input type="text" class="form-control" placeholder="start" id="start" value="0">
-          <input type="text" class="form-control" placeholder="stop" id="stop" value="10000000">
+          <input type="text" class="form-control" placeholder="stop" id="end" value="10000000">
           <input type="text" class="form-control" placeholder="referenceName" id="referenceName" value="1">
         </div>
         <button class="btn btn-default" onmouseup="start()">Submit</button>
@@ -66,36 +66,66 @@
     <tr>
       <td colspan="7" id="placeh">No results to show</td>
   </table>
-</div?>
+</div>
 <script>
 
-function variantRow(variant) {
-  var html = "<tr>";
-  html += "<td>" + variant.referenceName + "</td>";
-  html += "<td>" + variant.start + "</td>";
-  html += "<td>" + variant.names + "</td>";
-  var referenceBases = variant
-    .referenceBases
-    .replace(/A/g, "<span class='A'>A</span>")
-    .replace(/T/g, "<span class='T'>T</span>")
-    .replace(/G/g, "<span class='G'>G</span>")
-    .replace(/C/g, "<span class='Cy'>C</span>")
+function addcanvas() {
+  var elementID = 'canvas' + $('canvas').length; // Unique ID
+
+  $('<canvas>').attr({
+      id: elementID,
+      width: 2504,
+      height: 2504
+  }).css({
+    width: '25%',
+    padding: '25px',
+    background: '#ccc'
+  }).appendTo('#graph');
   
-  var alternateBases = variant
-    .alternateBases.join(',')
-    .replace(/A/g, "<span class='A'>A</span>")
-    .replace(/T/g, "<span class='T'>T</span>")
-    .replace(/G/g, "<span class='G'>G</span>")
-    .replace(/C/g, "<span class='Cy'>C</span>")
-  html += "<td style=\"overflow: scroll\"><small>" + referenceBases + "</small></td>";
-  html += "<td style=\"overflow: scroll\"><small>" + alternateBases + "</small></td>";
-  html += "<td style=\"font-family:monospace;\">" + Math.floor((10000 * variant.info["AF"])) / 100 + "%</td>";
-  html += "<td><a href=\"variant.html?v=" + variant.id + "\"><span class=\"glyphicon glyphicon-link\" aria-hidden=\"true\" style=\"font-size: 8pt\"></span></a></td>";
-  html += "</tr>";
-  return html;
+  return document.getElementById(elementID);
+}
+
+function draw() {
+  console.log(variants);
+  var l = 0;
+  for (variantinner in variants) {
+    for (variantouter in variants) {
+      if (variantinner != variantouter) {
+        
+        l += 1;
+        window.setTimeout(function() {
+          var canvas = addcanvas();
+          $("#graph").append(variants[variantinner].names + ',' + variants[variantouter].names)
+          var ctx = canvas.getContext("2d");
+          var imagedata = new ImageData(2504, 2504);
+          var innercalls = variants[variantinner].calls;
+          var outercalls = variants[variantouter].calls;
+            for (var i = 0; i < 2504; i++) {
+              for (var j = 0; j < 2504; j++) {
+            
+                var r = 0;//(innercalls[i].genotype[0] || innercalls[i].genotype[1]) * 255;//255 * (innercalls[i].genotype[0] || innercalls[i].genotype[1]) && (outercalls[i].genotype[0] || outercalls[i].genotype[1]);
+                var g = ((innercalls[i].genotype[0] || innercalls[i].genotype[1]) && (outercalls[j].genotype[0] || outercalls[j].genotype[1])) * 255;//64 * (innercalls[i].genotype[0] && innercalls[i].genotype[1]) && (outercalls[i].genotype[0] && outercalls[i].genotype[1]);
+                var b = 0;
+                var a = 255;
+            
+                imagedata.data[(i*(imagedata.width*4)) + (j*4)] = r;
+                imagedata.data[(i*(imagedata.width*4)) + (j*4) + 1] = g;
+                imagedata.data[(i*(imagedata.width*4)) + (j*4) + 2] = b;
+                imagedata.data[(i*(imagedata.width*4)) + (j*4) + 3] = a;
+                //ctx.fillStyle = "rgba("+r+","+g+","+b+","+(a/255)+")";
+                //ctx.fillRect( i, j, 1, 1 );
+              }
+            }
+          ctx.putImageData(imagedata, 0, 0);
+        }, 250 * l)
+      }
+
+    }
+  }
 }
 
 var alleleFrequencies = [];
+var variants = {};
 function pageVariants(query) {
   var d = (new Date()).getTime();
   getVariants(query, function(res) {
@@ -104,17 +134,14 @@ function pageVariants(query) {
     }
     console.log("Got " + res.variants.length + " variants in " + ((new Date()).getTime() - d))
     res.variants.forEach(function(variant) {
-      $("#variants").css("table-layout", "fixed");
-      $("#variants").append(variantRow(variant));
-      console.log(variant.info['AF']);
-      alleleFrequencies.push(variant.info['AF']);
-      console.log(bindata(alleleFrequencies));
+      variants[variant.id] = variant;
     })
     if (res.nextPageToken) {
       var nq = query;
       nq.pageToken = res.nextPageToken;
       setTimeout(function(){ pageVariants(nq); }, 10);
     } else {
+      draw();
       // assuming we are served in order
       console.log("done");
     }
@@ -130,71 +157,35 @@ function getVariants(query, callback) {
       dataType: 'json'
   });
 }
+
+
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+$("#variantSetId").val(getParameterByName("vs"));
+$("#referenceName").val(getParameterByName("ref"));
+$("#start").val(getParameterByName("start"));
+$("#end").val(getParameterByName("end"));
+start();
 function start() {
   var variantSetId = $('#variantSetId').val();
   var start = Number($('#start').val());
-  var cstop = Number($('#stop').val());
+  var cstop = Number($('#end').val());
   var referenceName = $('#referenceName').val();
   baseurl = $('#url').val();
   var query = {"variantSetId": variantSetId,
       "start": start,
       "end": cstop,
       "referenceName": referenceName,
-      "pageSize": 8,
-      "callSetIds": []
+      "pageSize": 8
     };
   pageVariants(query);
-}
-
-var width = 500;
-var height = 200;
-var margin = {top: 10, right: 30, bottom: 30, left: 30};
-var xAxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom");
-
-var x = d3.scale.linear()
-    .domain([0, 1])
-    .range([0, width]);
-
-var y = d3.scale.linear()
-    .domain([0, 1])
-    .range([height, 0]);
-
-var svg = d3.select("body").append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-function draw(data) {
-  var bar = svg.selectAll(".bar")
-      .data(data)
-    .enter().append("g")
-      .attr("class", "bar")
-      .attr("transform", function(d) { return "translate(" + x(d.x) + "," + y(d.y) + ")"; });
-  
-  bar.append("rect")
-      .attr("x", 1)
-      .attr("width", x(data[0].dx) - 1)
-      .attr("height", function(d) { return height - y(d.y); });
-
-  bar.append("text")
-      .attr("dy", ".75em")
-      .attr("y", 6)
-      .attr("x", x(data[0].dx) / 2)
-      .attr("text-anchor", "middle")
-      .text(function(d) { return formatCount(d.y); });
-
-  svg.append("g")
-      .attr("class", "x axis")
-      .attr("transform", "translate(0," + height + ")")
-      .call(xAxis);
-}
-
-function bindata(data) {
-  return d3.layout.histogram()
-          .bins(x.ticks(20))(data)
 }
 
 </script>

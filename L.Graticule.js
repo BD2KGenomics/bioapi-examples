@@ -145,7 +145,14 @@ L.SimpleGraticule = L.LayerGroup.extend({
             icon: L.divIcon({
                 iconSize: [0, 0],
                 className: 'leaflet-grid-label',
-                html: '<div class="' + axis + '">' + val / 1000 + '</div>'
+                html: (function() {
+                    if (val > 0 && val < 24000) {
+                        return '<div class="' + axis + '">' + val / 1000 + '</div>';
+                    } else {
+                        return "";
+                    }
+                    
+                })()
             })
         });
     },

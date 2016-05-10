@@ -1,6 +1,6 @@
 <html>
 <head>
-    <title>Thousand Genomes Variant Set Demo</title>
+    <title>GA4GH: Genome Browser Demo</title>
     <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
 	<meta charset="utf-8" />
@@ -21,6 +21,9 @@
   .leaflet-grid-label {
     color: #fefefe;
   }
+  .small-text {
+    font-size: 8pt;
+  }
   div.leaflet-label {
     color: #efefef;
     font-size: 8pt;
@@ -36,33 +39,129 @@
       width: 100%;
       height: 100%;
     }
+    #forms {display: none;}
+    #curposition {font-size: 12pt; position: absolute; bottom: 5px; color: #f0f0f0; z-index: 1000; left: 50%; font-family: monospace;}
 	</style>
 	
 </head>
 <body>
 <body style="padding-left: 0%; padding-right: 0%; font-family: sans-serif; margin: 0; padding: 0">
-  <nav class="navbar navbar-default navbar-fixed-top">
-    <div class="container-fluid">
-      <div class="navbar-form navbar-left" role="search">
-        <div class="form-group">
-          <input type="text" class="form-control" placeholder="URL" id="url" value="http://1kgenomes.ga4gh.org/">
-          <input type="text" class="form-control" placeholder="start" id="start" value="0">
-          <input type="text" class="form-control" placeholder="chrom" id="chrom" value="1">
-        </div>
-        <button class="btn btn-default" onmouseup="start()">Submit</button>
-      </div>
+<span id="curposition"></span>
+<nav class="navbar navbar-default" style="margin-bottom: 0;">
+  <div class="container-fluid">
+    <div class="navbar-form navbar-left" role="search">
+      <a class="navbar-brand" href="#" target="_new"><img src="https://genomicsandhealth.org/files/logo_ga.png" style="height: 48px; margin-top: -12px"></a>
+      <button type="button" class="btn btn-primary" aria-label="Search" id="togglesearch">
+        <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+      </button>
+      
     </div>
-  </nav>
-<div id='map'></div>
-
+    <div class="navbar-form navbar-left" role="search" id="forms">
+      <div class="form-group">
+        <div class="input-group">
+          <span class="input-group-addon"><label for="url">URL</label></span>
+          <span class="input-group-addon">
+            <select class="form-control" placeholder="URL" id="url" style="width: 14em">
+              <option value="http://1kgenomes.ga4gh.org/">http://1kgenomes.ga4gh.org/</option>
+              <option value="http://kozbo-vm.cloudapp.net/ga4gh/">http://kozbo-vm.cloudapp.net/ga4gh/</option>
+            </select>
+          </span>
+        </div>
+        <div class="input-group">
+          <span class="input-group-addon"><label for="variantSetId">Variant Set ID</label></span>
+          <span class="input-group-addon"><select class="form-control" id="variantSetId"></select></span>
+        </div>
+        <div class="input-group">
+          <span class="input-group-addon"><label for="featureSetid">Feature Set ID</label></span>
+          <span class="input-group-addon"><select class="form-control" id="featureSetId"></select></span>
+        </div>
+        <div class="input-group">
+          <label for="start">Start</label>
+          <input type="text" class="form-control" placeholder="start" id="start" value="0">
+        </div>
+        <div class="input-group">
+          <label for="chrom">Reference</label>
+          <input type="text" class="form-control" placeholder="chrom" id="referenceName" value="1">
+        </div>
+      </div>
+      <button class="btn btn-primary" onmouseup="restart(); return false;">Submit</button>
+    </div>
+  </div>
+</nav>
+<div id="map"></div>
 <script>
+
+function restart() {
+  baseurl = $("#url").val();
+  variantSetId = $("#variantSetId").val();
+  featureSetId = $("#featureSetId").val();
+  var next = window.location.href.split("?")[0] + "?start=" + $("#start").val() + "&url=" + baseurl + "&variantSetId=" + variantSetId + "&featureSetId=" + featureSetId;
+  console.log(next);
+  window.location.href = next;
+}
+
+function loadSelects(newurl, callback) {
+  console.log(newurl);
+  $.ajax(newurl + "datasets/search", {
+      data : JSON.stringify({}),
+      contentType : 'application/json',
+      type : 'POST',
+      success: function(res) {
+        console.log(res);
+        res.datasets.forEach(function(dataset) {
+          $.ajax(newurl + "variantsets/search", {
+                data : JSON.stringify({datasetId: dataset.id}),
+                contentType : 'application/json',
+                type : 'POST',
+                success: function(res) {
+                  console.log(res)
+                  $("#variantSetId").empty();
+                  res.variantSets.forEach(function(variantSet){
+                   $("#variantSetId").append($("<option></option>")
+                    .attr("value", variantSet.id)
+                    .text(variantSet.name)); 
+                  })
+                },
+                dataType: 'json'
+            });
+            $.ajax(newurl + "featuresets/search", {
+                  data : JSON.stringify({datasetId: dataset.id}),
+                  contentType : 'application/json',
+                  type : 'POST',
+                  success: function(res) {
+                    console.log(res)
+                    $("#featureSetId").empty();
+                    res.featureSets.forEach(function(featureSet){
+                     $("#featureSetId").append($("<option></option>")
+                      .attr("value", featureSet.id)
+                      .text(featureSet.name)); 
+                    })
+                    if (callback) {
+                      callback(res.featureSets[0]);
+                    }
+                    
+                  },
+                  dataType: 'json'
+              });
+        })
+      },
+      dataType: 'json'
+  });
+}
+
+$("#url").on("change", function() {
+  var newurl = this.value;
+  loadSelects(newurl);
+})
+
 function start() {
-  map.setView([1000 * Number($("#chrom").val() - 1) - 500, Number($("#start").val())]);
+  map.setView([1000 * Number($("#referenceName").val() - 1) - 500, Number($("#start").val())]);
   map.setZoom(0);
   updateView()
 }
 
-$("#map").height(window.innerHeight)
+$("#map").height(window.innerHeight - $("#map").offset().top);
+
 $(function() {
     $.xhrPool = [];
     $.xhrPool.abortAll = function() {
@@ -79,217 +178,345 @@ $(function() {
         }
     });
 })
-	var map = L.map('map', {
-		crs: L.CRS.Simple,
-    minZoom: -Infinity,
-    zoomControl: false,
-    maxBounds: L.latLngBounds([-5000,0], [23000, Math.pow(2,58)]),
-	});
-  var options = {redraw: 'move',
-                  showOriginLabel: false,
-                 zoomIntervals: [
-                  {start: -Infinity, end: -4, interval: 1000},
-              ]};
-  
-  L.control.scale().addTo(map);
-  var heatmap = new L.webGLHeatmap({
-    size: 1e7
-  });
-  new L.Control.Zoom({ position: 'bottomleft' }).addTo(map);
-	var bounds = [[0,0], [1,1000]];
-	var image = L.imageOverlay('http://research.pbsci.ucsc.edu/eeb/cjlaw/wp-content/uploads/2013/11/UCSC-logo.png', bounds).addTo(map);
-  map.setView([0,0], -4);
-	//map.fitBounds(bounds);
-  var baseurl = "http://1kgenomes.ga4gh.org/";
-  var l = 2504;//window.innerWidth;
-  var threshold = 0.8 * l;
-  var url = "variants/search";
-  function splitGenomic(query, n, fn) {
-    var width = query.end - query.start;
-    for (var i = 0; i < n; i ++) {
-      var frac = width / n;
-      var nq = query;
-      nq.start = Math.floor(i * frac + query.start);
-      nq.end = Math.ceil((i + 1) * frac + query.start);
-      //console.log(nq)
-      window.requestAnimationFrame(function() {
-        window.setTimeout(function() {fn(nq)}, i * 5);
-      })
-    }
+
+var map = L.map('map', {
+	crs: L.CRS.Simple,
+  minZoom: -Infinity,
+  zoomControl: false,
+  maxBounds: L.latLngBounds([-5000,0], [25000, Math.pow(2,58)]),
+});
+
+var options = {redraw: 'move',
+                showOriginLabel: false,
+               zoomIntervals: [
+                {start: -7, end: -4, interval: 1000},
+                 {start: -Infinity, end: -7, interval: 10000000},
+            ]};
+
+var heatmap = new L.webGLHeatmap({
+  size: 10000000
+});
+
+new L.Control.Zoom({ position: 'bottomleft' }).addTo(map);
+//var bounds = [[0,0], [1,1000]];
+//var image = L.imageOverlay('http://research.pbsci.ucsc.edu/eeb/cjlaw/wp-content/uploads/2013/11/UCSC-logo.png', bounds).addTo(map);
+map.setView([0,0], -4);
+//map.fitBounds(bounds);
+map.addLayer( heatmap );
+var url = "variants/search";
+function splitGenomic(query, n, fn) {
+  var width = query.end - query.start;
+  for (var i = 0; i < n; i ++) {
+    var frac = width / n;
+    var nq = query;
+    nq.start = Math.floor(i * frac + query.start);
+    nq.end = Math.ceil((i + 1) * frac + query.start);
+    //console.log(nq)
+    window.requestAnimationFrame(function() {
+      window.setTimeout(function() {fn(nq)}, i * 5);
+    })
   }
-  var init = true;
-  function updateView() {
-    console.log('drop')
-    $.xhrPool.abortAll();
-    console.log(map.getBounds().getNorth(), map.getBounds().getSouth());
-    console.log(map.getBounds().getWest(), map.getBounds().getEast());
-    var left = Math.floor(map.getBounds().getWest());
-    var right = Math.floor(map.getBounds().getEast())
-    var chromWindow = [Math.max(0, Math.floor(map.getBounds().getSouth() / 1000)), Math.ceil(map.getBounds().getNorth() / 1000)];
-    console.log("chromwindow" + chromWindow);
+}
+var init = true;
+function updateView() {
+  console.log('drop')
+  
+  if (init) {
+    L.simpleGraticule(options).addTo(map);
+    init = false;
     
-    map.addLayer( heatmap );
-    for (var i = chromWindow[0]; i < chromWindow[1]; i++) {
+  }
+  //console.log(map.getBounds().getNorth(), map.getBounds().getSouth());
+  //console.log(map.getBounds().getWest(), map.getBounds().getEast());
+  var left = Math.floor(map.getBounds().getWest());
+  var right = Math.floor(map.getBounds().getEast());
+  var chromWindow = [Math.max(0, Math.floor(map.getBounds().getSouth() / 1000)), Math.ceil(map.getBounds().getNorth() / 1000)];
+  //console.log("chromwindow" + chromWindow);
+  
+  
+  for (var i = chromWindow[0]; i < chromWindow[1]; i++) {
+    splitGenomic({
+        "variantSetId": variantSetId,
+        "start": left,
+        "end": right,
+        "referenceName": String(i),
+        "callSetIds": [],
+      "pageSize": 2
+      }, 2, pageVariants);
       splitGenomic({
-          "variantSetId": "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ",
-          "start": left,
-          "end": right,
-          "referenceName": String(i),
-          "callSetIds": [],
-        "pageSize": 2
-        }, 2, pageVariants);
-        splitGenomic({
-          "featureSetId": "WyIxa2dlbm9tZXMiLCJnZW5jb2RlX3YyNGxpZnQzNyJd",
-          "start": left, "end": right,
-          "pageSize": 1,
-          "parentId": "",
-          "featureTypes": ['gene'], "referenceName": "chr" + i}, 2, pageFeatures)
-    }
-    if (init) {
-      L.simpleGraticule(options).addTo(map);
-      init = false;
-    }
-    
-  }
-  map.on('mouseup', function(){
-    window.requestAnimationFrame(function() {
-      updateView()
-    });
-    $("#start").val((map.getBounds().getEast() - map.getBounds().getWest()) / 2 + map.getBounds().getWest())
-  })
-  map.on('mousedown', function(){
-    console.log('cancelling')
-    window.requestAnimationFrame(function() {
-      $.xhrPool.abortAll();
-    })
-  })
-  map.on('drag', function(){
-    console.log('cancelling')
-    window.requestAnimationFrame(function() {
-      $.xhrPool.abortAll();
-    })
-  })
-  function getVariants(query, callback) {
-    return $.ajax(baseurl + "variants/search", {
-        data : JSON.stringify(query),
-        contentType : 'application/json',
-        type : 'POST',
-        success: callback,
-        dataType: 'json'
-    });
-  }
-  var features = {};
-  function pageFeatures(query) {
-    getFeatures(query, function(res) {
-      window.requestAnimationFrame(function(){
-        res.features.forEach(function(feature) {
-          if (typeof features[feature.id] === "undefined") {
-            var height = Number(feature.referenceName.substring(3, feature.referenceName.length)) * 1000;
-            //console.log(height)
-            features[feature.id] = Object.keys(features).length;
-            var polygon;
-            try {
-              polygon = L.polygon([
-                            [height + 50, feature.start],
-                            [height + 50, feature.end],
-                            [height - 50, feature.end],
-                            [height - 50, feature.start]
-                        ])
-            } catch (err){
-              console.log(err)
-            }
-            var highlightStyle = {
-                color: '#2262CC', 
-                weight: 3,
-                opacity: 0.6,
-                fillOpacity: 0.65,
-                fillColor: '#2262CC'
-            };
-            polygon.setStyle({fillColor: '#FFFFFF', color: '#FFFFFF', borderOpacity: 1, fillOpacity: 0, opacity: 1, color: '#FFFFFF', weight: 1.0});
-            polygon.bindPopup(JSON.stringify(feature)).bindLabel(feature.attributes.vals['gene_name'][0], { noHide: true });
-            polygon.addTo(map);
-          }
-
-        })
-      })
-
-      if (res.nextPageToken) {
-        var nq = query;
-        nq.pageToken = res.nextPageToken;
-        setTimeout(function(){ pageFeatures(nq); }, 10);
-      } else {
-        // assuming we are served in order
-        console.log("done");
-      }
-    })
-  }
-  var variants = {};
-  var v = [];
-  function updateVariants(res) {
-    res.variants.forEach(function(variant) {
-      if (typeof variants[variant.id] === "undefined") {
-        var height = Number(variant.referenceName) * 1000;
-        
-        if (v.length > 1000000) {
-          v.shift();
-        }
-        v.push([height, variant.start, 0.1])
-        heatmap.setData(v);
-        //console.log(height)
-        variants[variant.id] = Object.keys(variants).length;
-        var polygon = L.polygon([
-            [10 + height + Number(variant.info['AF'][0]) * 100, variant.start],
-            [10 + height + Number(variant.info['AF'][0]) * 100, variant.end],
-            [-10 + height + -Number(variant.info['AF'][0]) * 100, variant.end],
-            [-10 + height + -Number(variant.info['AF'][0]) * 100, variant.start]
-        ])
-        polygon.setStyle({fillColor: '#FF0000', color: '#00FFFF', fillOpacity: 0.8, opacity: 1, weight: 0.8});
-        polygon.bindPopup(JSON.stringify(variant));
-        polygon.addTo(map);
-      }
-
-    })
+        "featureSetId": featureSetId,
+        "start": left, "end": right,
+        "pageSize": 1,
+        "parentId": "",
+        "featureTypes": ['gene'], "referenceName": "chr" + i}, 2, pageFeatures)
   }
 
-  function getFeatures(query, callback) {
-    return $.ajax(baseurl + "features/search", {
-        data : JSON.stringify(query),
-        contentType : 'application/json',
-        type : 'POST',
-        success: callback,
-        dataType: 'json'
-    });
-  }
-  function pageVariants(query) {
-    // set start to equal end and split multiple requests
-    var d = (new Date()).getTime();
-    window.requestAnimationFrame(function() {
-      getVariants(query, function(res) {
-      //console.log("Got " + res.variants.length + " variants in " + ((new Date()).getTime() - d))
-      d = (new Date()).getTime();
-      updateVariants(res);
-      if (res.nextPageToken) {
-        var nq = query;
-        nq.pageToken = res.nextPageToken;
-        nq.pageSize = 2;
-        setTimeout(function(){ pageVariants(nq); }, 10);
-      } else {
-        // assuming we are served in order
-        console.log("done");
-      }
-    })
-  })
-  }
   
-  // pageVariants({
-  //     "variantSetId": "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ",
-  //     "start": 0,
-  //     "end": 1231132,
-  //     "referenceName": "1",
-  //     "pageSize": 5
-  //   });
+}
+map.on('mouseup', function(){
+  var positionHtml = Math.ceil((map.getCenter().lat) / 1000) + ":" + Math.floor(map.getBounds().getWest()) + "-" + Math.floor(map.getBounds().getEast())
+  $("#curposition").html(positionHtml);
+  window.requestAnimationFrame(function() {
+    updateView()
+  });
+  $("#start").val((map.getBounds().getEast() - map.getBounds().getWest()) / 2 + map.getBounds().getWest())
+})
+map.on('mousedown', function(){
+  console.log('cancelling')
+  var chro = Math.max(1, Math.ceil((map.getCenter().lat) / 1000))
+  var positionHtml = chrom + ":" + Math.floor(map.getBounds().getWest()) + "-" + Math.floor(map.getBounds().getEast())
+  $("#curposition").html(positionHtml);
+  window.requestAnimationFrame(function() {
+    $.xhrPool.abortAll();
+  })
+})
+
+map.on('drag', function(){
+  console.log('cancelling')
+  window.requestAnimationFrame(function() {
+    $.xhrPool.abortAll();
+  })
+  console.log(map.getCenter())
+  var chro = Math.max(1, Math.ceil((map.getCenter().lat) / 1000))
+  var positionHtml = chrom + ":" + Math.floor(map.getBounds().getWest()) + "-" + Math.floor(map.getBounds().getEast())
+  $("#curposition").html(positionHtml);
+})
+
+function getVariants(query, callback) {
+  return $.ajax(baseurl + "variants/search", {
+      data : JSON.stringify(query),
+      contentType : 'application/json',
+      type : 'POST',
+      success: callback,
+      dataType: 'json'
+  });
+}
+var features = {};
+function pageFeatures(query) {
+  getFeatures(query, function(res) {
+    window.requestAnimationFrame(function(){
+      res.features.forEach(function(feature) {
+        if (typeof features[feature.id] === "undefined") {
+          var height = Number(feature.referenceName.substring(3, feature.referenceName.length)) * 1000;
+          //console.log(height)
+          features[feature.id] = Object.keys(features).length;
+          var polygon;
+          try {
+            polygon = L.polygon([
+                          [height + 50, feature.start],
+                          [height + 50, feature.end],
+                          [height - 50, feature.end],
+                          [height - 50, feature.start]
+                      ])
+          } catch (err){
+            console.log(err)
+          }
+          var highlightStyle = {
+              color: '#2262CC', 
+              weight: 3,
+              opacity: 0.6,
+              fillOpacity: 0.65,
+              fillColor: '#2262CC'
+          };
+          polygon.setStyle({fillColor: '#FFFFFF', color: '#FFFFFF', borderOpacity: 1, fillOpacity: 0, opacity: 1, color: '#FFFFFF', weight: 1.0});
+          polygon.bindPopup(featureHtml(feature)).bindLabel(feature.attributes.vals['gene_name'][0], { noHide: true });
+          polygon.addTo(map);
+        }
+
+      })
+    })
+
+    if (res.nextPageToken) {
+      var nq = query;
+      nq.pageToken = res.nextPageToken;
+      setTimeout(function(){ pageFeatures(nq); }, 10);
+    } else {
+      // assuming we are served in order
+      console.log("done");
+    }
+  })
+}
+var variants = {};
+var v = [];
+function variantHtml(variant) {
+  var html = "";
+  html += "<h5><b><a href=\"variant.html?url=" + baseurl + "&variantId=" + variant.id + "\" target=\"_new\">Variant <span class=\"glyphicon glyphicon-link\" aria-hidden=\"true\" style=\"font-size: 8pt\"></span></a></b></h5>";
+  html += "<table class=\"table-condensed table small-text\">"
+  html += "<tr>"
+  html += "<td>Names</td>"
+  html += "<td>" + variant.names + "</td>"
+  html += "</tr>"
+  html += "<tr>"
+  html += "<td>Pos</td>"
+  html += "<td>" + variant.referenceName + ":" + variant.start + "-" + variant.end + "</td>"
+  html += "</tr>"
+  html += "<tr>"
+  html += "<td>" + variant.referenceBases + "</td>"
+  html += "<td>" + variant.alternateBases + "</td>"
+  html += "</tr>"
+  html += "<tr>"
+  html += "<td>AF</td>"
+  html += "<td>" + variant.info['AF'][0] + "</td>"
+  html += "</tr>"
+  return html;
+  
+}
+
+function featureHtml(feature) {
+  var html = "<h5>Gene: <b>" + feature.attributes.vals['gene_name'][0] + "</b></h5>";
+  console.log(feature)
+  html += "<table class=\"table-condensed table small-text\">"
+  // html += "<tr>"
+  // html += "<td>Names</td>"
+  // html += "<td>" + variant.names + "</td>"
+  // html += "</tr>"
+  html += "<tr>"
+  html += "<td>Pos</td>"
+  html += "<td>" + feature.referenceName + ":" + feature.start + "-" + feature.end + "</td>"
+  html += "</tr>"
+  html += "<tr>"
+  html += "<td>Strand</td>"
+  html += "<td>" + feature.strand + "</td>"
+  html += "</tr>"
+  html += "<tr>"
+  html += "<td>Ensembl ID</td>"
+  html += "<td>" + feature.attributes.vals['gene_id'][0] + "</td>"
+  html += "</tr>"
+  return html;
+  
+}
+
+
+function updateVariants(res) {
+  res.variants.forEach(function(variant) {
+    if (typeof variants[variant.id] === "undefined") {
+      var height = Number(variant.referenceName) * 1000;
+      
+      // if (v.length > 1000000) {
+      //   v.shift();
+      // }
+      v.push([height, variant.start, 0.05])
+      
+      //console.log(height)
+      variants[variant.id] = Object.keys(variants).length;
+      var polygon = L.polygon([
+          [10 + height + Number(variant.info['AF'][0]) * 100, variant.start],
+          [10 + height + Number(variant.info['AF'][0]) * 100, variant.end],
+          [-10 + height + -Number(variant.info['AF'][0]) * 100, variant.end],
+          [-10 + height + -Number(variant.info['AF'][0]) * 100, variant.start]
+      ])
+      polygon.setStyle({fillColor: '#FF0000', color: '#00FFFF', fillOpacity: 0.8, opacity: 1, weight: 0.8});
+      polygon.bindPopup(variantHtml(variant)).bindLabel(variant.names[0], { noHide: true });;
+      polygon.addTo(map);
+    }
+
+  })
+  window.setTimeout(function() {
+    heatmap.setData(v);
+  }, 200);
+}
+
+function getFeatures(query, callback) {
+  return $.ajax(baseurl + "features/search", {
+      data : JSON.stringify(query),
+      contentType : 'application/json',
+      type : 'POST',
+      success: callback,
+      dataType: 'json'
+  });
+}
+function pageVariants(query) {
+  // set start to equal end and split multiple requests
+  var d = (new Date()).getTime();
+  window.requestAnimationFrame(function() {
+    getVariants(query, function(res) {
+    //console.log("Got " + res.variants.length + " variants in " + ((new Date()).getTime() - d))
+    d = (new Date()).getTime();
+    updateVariants(res);
+    if (res.nextPageToken) {
+      var nq = query;
+      nq.pageToken = res.nextPageToken;
+      nq.pageSize = 2;
+      setTimeout(function(){ pageVariants(nq); }, 10);
+    } else {
+      // assuming we are served in order
+      console.log("done");
+    }
+  })
+})
+}
+
+// pageVariants({
+//     "variantSetId": "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ",
+//     "start": 0,
+//     "end": 1231132,
+//     "referenceName": "1",
+//     "pageSize": 5
+//   });
+var variantSetId;
+var baseurl;
+var featureSetId;
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+$("#togglesearch").mouseup(function() {
+  window.requestAnimationFrame(function() {
+    $.xhrPool.abortAll();
+  })
+  $("#forms").toggle()
+})
+
+
+
 $(document).ready(function(){
-  updateView();
+//  $("#url").val(getParameterByName("url"));
+  baseurl = getParameterByName("url");
+  if (!baseurl) {
+    console.log("no base url")
+    baseurl = "http://1kgenomes.ga4gh.org/";
+  }
+
+
+  loadSelects(baseurl);
+  $("#url option").each(function() {
+    console.log()
+    if (baseurl == $(this).val()) {
+      $(this).attr('selected', 'true')
+    }
+  });
+  //$("#variantSetId").val(getParameterByName("variantSetId"));
+  variantSetId = getParameterByName("variantSetId");
+  featureSetId = getParameterByName("featureSetId");
+  if (!featureSetId) {
+    loadSelects(baseurl, function(featureSet) {
+      console.log(featureSet);
+      featureSetId = featureSet.id;
+      $("#referenceName").val(getParameterByName("referenceName"));
+      //featureSetId = $("#featureSetId").val();
+      $("#start").val(getParameterByName("start"));
+      start = $("#start").val();
+      map.setView([1000 * Number($("#referenceName").val() - 1) - 500, Number($("#start").val())]);
+      var positionHtml = Math.ceil((map.getCenter().lat) / 1000) + ":" + Math.floor(map.getBounds().getWest()) + "-" + Math.floor(map.getBounds().getEast())
+      $("#curposition").html(positionHtml);
+      updateView();
+    })
+  } else {
+    $("#referenceName").val(getParameterByName("referenceName"));
+    //featureSetId = $("#featureSetId").val();
+    $("#start").val(getParameterByName("start"));
+    start = $("#start").val();
+    map.setView([1000 * Number($("#referenceName").val() - 1) - 500, Number($("#start").val())]);
+    var positionHtml = Math.ceil((map.getCenter().lat) / 1000) + ":" + Math.floor(map.getBounds().getWest()) + "-" + Math.floor(map.getBounds().getEast())
+    $("#curposition").html(positionHtml);
+    updateView();
+  }
+
 })
 </script>
 

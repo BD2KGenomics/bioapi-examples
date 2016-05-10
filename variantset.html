@@ -1,0 +1,285 @@
+<html>
+<head>
+    <title>GA4GH: Variant set</title>
+    <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <style>
+    .H { color:#FFFFFF; font-weight:bold; }
+    .C { color:#909090; font-weight:bold; }
+    .O { color:#FF0D0D; font-weight:bold; }
+    .N { color:#3050F8; font-weight:bold; }
+    .P { color:#FF8000; font-weight:bold; }
+
+    .A { color:#5050ff; font-weight:bold; }
+    .G { color:#00c000; font-weight:bold; }
+    .Cy { color:#e00000; font-weight:bold; }
+    .T { color:#b6b600; font-weight:bold; }
+    .dna { color:#ae00fe; font-weight:bold; }
+    .bar rect {
+      fill: steelblue;
+      shape-rendering: crispEdges;
+    }
+
+    .bar text {
+      fill: #fff;
+    }
+    
+    .vsetname {
+      font-size: 16pt;
+    }
+
+    .axis path, .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+    #graph {
+      font-size: 8pt;
+    }
+    .small-text {font-size: 12pt; font-family: monospace; color: #999;}
+    .verysmall-text {font-size: 8pt; font-family: monospace; color: #666;}
+    #metadatahead { display: none;}
+    .metadatarow { display: none;}
+    #forms {display: none;}
+    </style>
+    <script src="//d3js.org/d3.v3.min.js"></script>
+</head>
+<body style="padding-left: 0%; padding-right: 0%; font-family: sans-serif; margin: 0; padding: 0">
+  <nav class="navbar navbar-default">
+    <div class="container-fluid">
+      <div class="navbar-form navbar-left" role="search">
+        <a class="navbar-brand" href="#" id="headerlink"><img src="https://genomicsandhealth.org/files/logo_ga.png" style="height: 48px; margin-top: -12px"></a>
+        <button type="button" class="btn btn-primary" aria-label="Search" id="togglesearch">
+          <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="navbar-form navbar-left" role="search">
+        <div class="form-group" id="forms">
+          <div class="input-group">
+            <label for="url">URL</label>
+            <input type="text" class="form-control" placeholder="URL" id="url" value="http://1kgenomes.ga4gh.org/">
+          </div>
+          <div class="input-group">
+            <label for="variantSetId">Variant Set ID</label>
+            <input type="text" class="form-control" placeholder="Variant Set ID" id="variantSetId" value="WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ">
+          </div>
+          <div class="input-group">
+            <label for="url">Start</label>
+            <input type="text" class="form-control" placeholder="start" id="start" value="0">
+          </div>
+          <div class="input-group">
+            <label for="url">End</label>
+            <input type="text" class="form-control" placeholder="stop" id="end" value="10000000">
+          </div>
+          <div class="input-group">
+            <label for="url">Reference Name</label>
+            <input type="text" class="form-control" placeholder="referenceName" id="referenceName" value="1">
+          </div>
+          <div>
+          <button class="btn btn-primary" onmouseup="restart()">Submit</button>
+        </div>
+        </div>
+        
+      </div>
+    </div>
+  </nav>
+<div class="container-fluid">
+  <h2>Variant set <span class="vsetname">(<span id="variantset"></span>)</span></h2>
+  <div id="graph">
+  </div>
+  <table id="variants" class="table-hover table-striped table-condensed table">
+    <tr>
+      <td colspan="2" style="text-align: center"><a href="#" onmouseup="$('#metadatahead').toggle(); $('.metadatarow').toggle(); return false">View metadata</a></td>
+      <td colspan="2" style="text-align: center"><span id="referenceNamePos"></span>:<span id="startpos"></span>-<span id="endpos"></span></td>
+      <td colspan="3" style="text-align: center">Results: <span id="total" class="small-text"></span><span class="verysmall-text">(<span id="density"></span> bases/variant)</span></td>
+    </tr>
+    <tr id="metadatahead">
+      <th colspan="2">Key</th>
+      <th colspan="4">Description</th>
+      <th colspan="1">Value</th>
+    </tr>
+    <tr id="metadata">
+    </tr>
+    <tr margin="padding: 5px">
+      <th>Chrom</th>
+      <th>Pos</th>
+      <th>Names</th>
+      <th>Reference</th>
+      <th>Alts</th>
+      <th>Allele frequency</th>
+      <th style="width: 4em">Link</th>
+    </tr>
+    <tr>
+      <td colspan="7" id="placeh">No results to show</td>
+  </table>
+</div>
+<script>
+
+function variantRow(variant) {
+  var html = "<tr>";
+  html += "<td>" + variant.referenceName + "</td>";
+  html += "<td>" + variant.start + "</td>";
+  html += "<td>" + variant.names + "</td>";
+  var referenceBases = variant
+    .referenceBases
+    .replace(/A/g, "<span class='A'>A</span>")
+    .replace(/T/g, "<span class='T'>T</span>")
+    .replace(/G/g, "<span class='G'>G</span>")
+    .replace(/C/g, "<span class='Cy'>C</span>")
+  
+  var alternateBases = variant
+    .alternateBases.join(',')
+    .replace(/A/g, "<span class='A'>A</span>")
+    .replace(/T/g, "<span class='T'>T</span>")
+    .replace(/G/g, "<span class='G'>G</span>")
+    .replace(/C/g, "<span class='Cy'>C</span>")
+  html += "<td style=\"overflow: scroll\"><small>" + referenceBases + "</small></td>";
+  html += "<td style=\"overflow: scroll\"><small>" + alternateBases + "</small></td>";
+  html += "<td style=\"font-family:monospace;\">" + Math.floor((10000 * variant.info["AF"])) / 100 + "%</td>";
+  html += "<td><a href=\"variant.html?url=" + baseurl + "&variantId=" + variant.id + "\"><span class=\"glyphicon glyphicon-link\" aria-hidden=\"true\" style=\"font-size: 8pt\"></span></a></td>";
+  html += "</tr>";
+  return html;
+}
+
+var alleleFrequencies = [];
+var total = 0;
+var startpos = Infinity;
+var endpos = 0;
+var gwidth = 0;
+var density = 0;
+function pageVariants(query) {
+  var d = (new Date()).getTime();
+  $("#startpos").html(query.start);
+  startpos = query.start;
+  getVariants(query, function(res) {
+    if (res.variants.length != 0) {
+      $("#placeh").hide();
+    }
+    //console.log("Got " + res.variants.length + " variants in " + ((new Date()).getTime() - d))
+    res.variants.forEach(function(variant) {
+      total += 1;
+
+      if (variant.start > endpos) {
+        $("#endpos").html(variant.start);
+        endpos = variant.end;
+      }
+      gwidth = endpos - startpos;
+      density = gwidth / total;
+      $("#density").html(Math.floor(density));
+      $("#referenceNamePos").html(variant.referenceName);
+      $("#total").html(total);
+      $("#variants").css("table-layout", "fixed");
+      $("#variants").append(variantRow(variant));
+      //console.log(variant.info['AF']);
+      alleleFrequencies.push(variant.info['AF']);
+      //console.log(bindata(alleleFrequencies));
+    })
+    if (res.nextPageToken) {
+      var nq = query;
+      nq.pageToken = res.nextPageToken;
+      setTimeout(function(){ pageVariants(nq); }, 10);
+    } else {
+      // assuming we are served in order
+      console.log("done");
+    }
+  })
+}
+
+function getVariants(query, callback) {
+  return $.ajax(baseurl + "variants/search", {
+      data : JSON.stringify(query),
+      contentType : 'application/json',
+      type : 'POST',
+      success: callback,
+      dataType: 'json'
+  });
+}
+
+function getVariantSet(id, callback) {
+  return $.ajax(baseurl + "variantsets/" + id, {
+      contentType : 'application/json',
+      type : 'GET',
+      success: callback,
+      dataType: 'json'
+  });
+}
+
+function restart() {
+  baseurl = $("#url").val();
+  variantSetId = $("#variantSetId").val();
+  
+  var next = window.location.href.split("?")[0] + "?start=" + $("#start").val() + "&url=" + baseurl + "&variantSetId=" + variantSetId + "&referenceName=" + $('#referenceName').val() + "&start=" + $('#start').val() + "&end=" + $('#end').val();;
+  console.log(next);
+  window.location.href = next;
+}
+
+$("#variantSetId").val(getParameterByName("variantSetId"));
+$("#referenceName").val(getParameterByName("referenceName"));
+$("#start").val(getParameterByName("start"));
+$("#end").val(getParameterByName("end"));
+$("#url").val(getParameterByName("url"));
+$("#headerlink").attr("href", "map.html?referenceName="+ $("#referenceName").val() + "&variantSetId=" + $("#variantSetId").val() + "&url=" + $("#url").val() + "&start=" + $("#start").val())
+start();
+function metadataRows(vset) {
+  var html = "";
+  
+  vset.metadata.forEach(function(meta) {
+    html += "<tr class=\"metadatarow\">";
+    html += "<td colspan=\"2\">" + meta.key + "</td>";
+    html += "<td colspan=\"4\">" + meta.description + "</td>";
+    html += "<td colspan=\"1\">" + meta.value + "</td>";
+    html += "</tr>";
+  });
+  
+  return html;
+}
+
+$("#togglesearch").mouseup(function() {
+  $("#forms").toggle()
+})
+
+$(document).ready(function() {
+  $("#url").val(getParameterByName("url"));
+  baseurl = $("#url").val();
+})
+
+function start() {
+  var variantSetId = $('#variantSetId').val();
+  var start = Number($('#start').val());
+  var cstop = Number($('#end').val());
+  var referenceName = $('#referenceName').val();
+  baseurl = $('#url').val();
+  console.log(baseurl);
+  getVariantSet(variantSetId, function(vset) {
+    console.log(vset)
+    var html = "";
+    html += vset.name;
+    $("#variantset").html(html);
+    $(metadataRows(vset)).insertAfter("#metadata")
+  })
+  var query = {"variantSetId": variantSetId,
+      "start": start,
+      "end": cstop,
+      "referenceName": referenceName,
+      "pageSize": 8,
+      "callSetIds": []
+    };
+  pageVariants(query);
+}
+
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
+function bindata(data) {
+  return d3.layout.histogram()
+          .bins(x.ticks(20))(data)
+}
+
+</script>

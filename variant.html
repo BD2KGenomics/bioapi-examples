@@ -1,23 +1,45 @@
 <html>
 <head>
-    <title>Thousand Genomes Variant Set Demo</title>
+    <title>GA4GH: Variant</title>
     <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
 </head>
+<style>
+.nearby { color: #ccc;}
+.small-text {font-size: 12pt; font-family: monospace; color: #999;}
+#forms { display: none;}
+#callpresent {display: none;}
+#countcalls {display: none;}
+#callmatrix {display: none;}
+</style>
 <body style="padding-left: 0%; padding-right: 0%; font-family: sans-serif; margin: 0; padding: 0">
   <nav class="navbar navbar-default">
     <div class="container-fluid">
       <div class="navbar-form navbar-left" role="search">
-        <div class="form-group">
-          <input type="text" class="form-control" placeholder="URL" id="url" value="http://1kgenomes.ga4gh.org/">
-          <input type="text" class="form-control" placeholder="Variant ID" id="variantId" value="WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiLCIxIiwiMTA2MTUiLCI0Njg2ZjQzZDQ0NDM1MTZmZDExYjljOGE4YmY5NDFhOSJd">
+        <a class="navbar-brand" href="https://genomicsandhealth.org/" target="_new" id="logo"><img src="https://genomicsandhealth.org/files/logo_ga.png" style="height: 48px; margin-top: -12px"></a>
+        <button type="button" class="btn btn-primary" aria-label="Search" id="togglesearch">
+          <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="navbar-form navbar-left" role="search">
+        <div class="form-group" id="forms">
+          <div class="input-group">
+            <label for="url">URL</label>
+            <input type="text" class="form-control" placeholder="URL" id="url" value="http://1kgenomes.ga4gh.org/">
+          </div>
+          <div class="input-group">
+            <label for="variantId">Variant ID</label>
+            <input type="text" class="form-control" placeholder="Variant ID" id="variantId" value="WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiLCIxIiwiMTA2MTUiLCI0Njg2ZjQzZDQ0NDM1MTZmZDExYjljOGE4YmY5NDFhOSJd">
+          </div>
+        <button class="btn btn-default" onmouseup="restart()">Submit</button>
         </div>
-        <button class="btn btn-default" onmouseup="start()">Submit</button>
+        
       </div>
     </div>
   </nav>
 <div class="container-fluid">
   <div>
+    <h2><span id="variantset">Variant set</span>: Variant <span id="pos" class="small-text"></span></h2>
   <table id="variant" class="table-hover table-striped table-condensed table">
     <tr margin="padding: 5px">
       <th>Chrom</th>
@@ -26,6 +48,7 @@
       <th>Reference</th>
       <th>Alts</th>
       <th>Allele frequency</th>
+      <th>-</th>
     </tr>
     <tr id="placeh">
       <td colspan="7">Loading...</td>
@@ -34,7 +57,61 @@
     </tr>
   </table>
   </div>
-  <canvas id="callmatrix" width="2504" height="2504" style="background: black">Your browser does not support canvas</canvas>
+  <div class="well">
+    <div class="form-group">
+      <div class="input-group">
+        <label for="callSetId" class="input-group-addon">Does this sample present the variation?</label>
+        <span class="input-group-addon">
+          <select class="form-control" id="callSetIds">
+            <option></option>
+          </select>
+        </span>
+      </div>
+    </div>
+    <div id="callpresent">
+      <table class="table table-striped">
+        <tr>
+          <th>First haplotype</th>
+          <th>Second haplotype</th>
+          <th>Phasing</th>
+        </tr>
+        <tr>
+          <td id="haplotype1"></td>
+          <td id="haplotype2"></td>
+          <td id="phasing"></td>
+        </tr>
+      </table>
+    </div>
+    <div class="form-group">
+      <div class="input-group">
+        <label for="callSetIds2" class="input-group-addon">Counts</label>
+        <span class="input-group-addon">
+          <select class="form-control"  multiple id="callSetIds2">
+          </select>
+        </span>
+        <span class="input-group-addon">
+          <button class="btn btn-primary" id="checkCalls">Calculate</button>
+        </span>
+      </div>
+    </div>
+    <div id="countcalls">
+      <table class="table table-striped">
+        <tr>
+          <th>First haplotype</th>
+          <th>Second haplotype</th>
+          <th>Both</th>
+        </tr>
+        <tr style="font-family: monospace; font-weight: 600">
+          <td id="counthaplotype1">0</td>
+          <td id="counthaplotype2">0</td>
+          <td id="countboth">0</td>
+        </tr>
+      </table>
+    </div>
+    <div>
+      <canvas id="callmatrix" width="2504" height="2504" style="">Your browser does not support canvas</canvas>
+    </div>
+  </div>
 </div?>
 <script>
 var baseurl = "http://1kgenomes.ga4gh.org/";
@@ -42,11 +119,94 @@ var calls = [];
 var c = document.getElementById("callmatrix");
 var ctx = c.getContext("2d");
 var c = document.getElementById("c");
-
+var variantId;
+var currentVariant;
 function start() {
-  var variantId = $('#variantId').val();
-  baseurl = $('#url').val();
-  getVariant(variantId, drawVariant);
+  $("#variantId").val(getParameterByName("variantId"));
+  variantId = $('#variantId').val();
+  $("#url").val(getParameterByName("url"));
+  baseurl = $("#url").val();
+  getVariant(variantId, function(variant) {
+    variant.calls.forEach(function(call) {
+        $("#callSetIds").append($("<option></option>")
+         .attr("value", call.callSetId)
+         .text(call.callSetName)); 
+    
+        $("#callSetIds2").append($("<option></option>")
+         .attr("value", call.callSetId)
+         .text(call.callSetName)); 
+      
+        $("#callSetIds2 option").prop('selected', true);
+      });
+      currentVariant = variant;
+      drawVariant(variant);
+  });
+}
+
+$("#callSetIds").on("change", function() {
+  $("#haplotype1").html("-");
+  $("#haplotype2").html("-");
+  $("#phasing").html("-");
+  window.setTimeout(function() {
+
+    checkCall();
+  }, 600)
+  
+})
+
+
+$("#checkCalls").on("mouseup", checkCalls);
+
+$("#callSetIds2").on("change", function() {
+  $("#counthaplotype1").html("-");
+  $("#counthaplotype2").html("-");
+  $("#countboth").html("-");
+});
+
+function checkCalls() {
+  $("#countcalls").show();
+  console.log("checking")
+  var count1=0, count2=0, countboth=0;
+  $("#counthaplotype1").html("-");
+  $("#counthaplotype2").html("-");
+  $("#countboth").html("-");
+  var csids = $("#callSetIds2").val()
+  window.requestAnimationFrame(function() {
+    currentVariant.calls.forEach(function(call) {
+      //chconsole.log($("#callSetIds2").val())
+
+      if (csids.indexOf(call.callSetId) != -1) {
+        console.log(call)
+        count1 += call.genotype[0];
+        count2 += call.genotype[1];
+        countboth += call.genotype[0] * call.genotype[1];
+      }
+      $("#counthaplotype1").html(count1 + " (" + Math.round(10000 * count1 / currentVariant.calls.length) / 100 + "%)");
+      $("#counthaplotype2").html(count2 + " (" + Math.round(10000 * count2 / currentVariant.calls.length) / 100 + "%)");
+      $("#countboth").html(countboth + " (" + Math.round(10000 * countboth / currentVariant.calls.length) / 100 + "%)");
+    })
+  })
+}
+
+function checkCall() {
+  currentVariant.calls.forEach(function(call) {
+    if (call.callSetId == $("#callSetIds").val()) {
+      $("#haplotype1").html(call.genotype[0])
+      $("#haplotype2").html(call.genotype[1])
+      $("#phasing").html(call.phaseset)
+      $("#callpresent").show();
+    }
+  })
+  
+}
+
+function restart() {
+  baseurl = $("#url").val();
+  variantId = $("#variantId").val();
+  
+  var next = window.location.href.split("?")[0] + "?url=" + baseurl + "&variantId=" + variantId;
+  console.log(next);
+  window.location.href = next;
 }
 
 function variantRow(variant) {
@@ -70,6 +230,7 @@ function variantRow(variant) {
   html += "<td style=\"overflow: scroll\"><small>" + referenceBases + "</small></td>";
   html += "<td style=\"overflow: scroll\"><small>" + alternateBases + "</small></td>";
   html += "<td style=\"font-family:monospace;\">" + Math.floor((10000 * variant.info["AF"])) / 100 + "%</td>";
+  html += "<td><a href=\"variant.html?url=" + baseurl + "&variantId=" + variant.id + "\"><span class=\"glyphicon glyphicon-link\" aria-hidden=\"true\" style=\"font-size: 8pt\"></span></a></td>";
   return html;
 }
 
@@ -85,9 +246,49 @@ function getParameterByName(name, url) {
     return decodeURIComponent(results[2].replace(/\+/g, " "));
 }
 
+var variants = {};
 function drawVariant(variant) {
+  if (typeof variants[variant.id] === "undefined") {
+    variants[variant.id] = Object.keys(variants).length;
+  }
+  $("#pos").html(variant.referenceName + ":" + variant.start + "-" + variant.end)
   console.log("got variant");
   console.log(variant);
+  $("#logo").attr("href", "variantset.html?url=" + baseurl + "&variantSetId=" + variant.variantSetId + "&referenceName=" + variant.referenceName + "&start="+ variant.start + "&end=" + Math.pow(2,58))
+  $("#variantset").html("<a href=\"variantset.html?url=" + baseurl + "&variantSetId=" + variant.variantSetId + "&referenceName=" + variant.referenceName + "&start="+ variant.start + "&end=" + Math.pow(2,58) + "\">Variant set</a>")
+  var query = {
+    "variantSetId": variant.variantSetId,
+    "start": variant.start - 1000,
+    "end": variant.end + 1000,
+    "referenceName": variant.referenceName,
+    "pageSize": 3,
+    "callSetIds": []
+  };
+  getVariants(query, function(res){
+    res.variants.forEach(function(variant) {
+      if (typeof variants[variant.id] === "undefined") {
+        variants[variant.id] = Object.keys(variants).length;
+        var html = ""
+        html += "<tr class=\"nearby\">" + variantRow(variant) + "</tr>";
+        $("#variant").append(html);
+      }
+    })
+  });
+  query =  {
+      "variantSetId": variant.variantSetId,
+      "start": variant.start + 1,
+      "end": variant.end + 1000,
+      "referenceName": variant.referenceName,
+    "pageSize": 3,
+    "callSetIds": []
+    };
+    getVariants(query, function(res){
+      res.variants.forEach(function(variant) {
+        var html = ""
+        html += "<tr class=\"nearby\">" + variantRow(variant) + "</tr>";
+        $("#variant").append(html);
+      })
+    });
   $("#v").html(variantRow(variant));
   $("#placeh").hide();
   var csIds = variant.calls.map(function(call, i) {
@@ -97,16 +298,27 @@ function drawVariant(variant) {
     return call.callSetId;
   });
   console.log(calls);
-  for (var i = 0; i < 600; i++) {
-    for (var j = 0; j < 600; j++) {
-      var r = ((calls[j].genotype[0] || calls[j].genotype[1]) && (calls[i].genotype[0] || calls[i].genotype[1])) * 255;
-      var g = ((calls[j].genotype[0] && calls[j].genotype[1]) && !(calls[i].genotype[0] && calls[i].genotype[1])) * 255;
-      var b = 0;
-      var a = 255;
-      ctx.fillStyle = "rgba("+r+","+g+","+b+","+(a/255)+")";
-      ctx.fillRect( i, j, 1, 1 );
+  var imagedata = new ImageData(2504, 2504);
+  if (csIds.length > 0) {
+    for (var i = 0; i < 2504; i++) {
+      for (var j = 0; j < 2504; j++) {
+        var r = ((calls[j].genotype[0] && calls[j].genotype[1]) && (calls[i].genotype[0] && calls[i].genotype[1])) * 255;
+        var g = 0//((calls[j].genotype[0] || calls[j].genotype[1]) && (calls[i].genotype[0] || calls[i].genotype[1])) * 64;
+        var b = ((calls[j].genotype[0] || calls[j].genotype[1]) && (calls[i].genotype[0] || calls[i].genotype[1])) * 64;
+        var a = 255;
+        imagedata.data[(i*(imagedata.width*4)) + (j*4)] = r;
+        imagedata.data[(i*(imagedata.width*4)) + (j*4) + 1] = g;
+        imagedata.data[(i*(imagedata.width*4)) + (j*4) + 2] = b;
+        imagedata.data[(i*(imagedata.width*4)) + (j*4) + 3] = a;
+        //ctx.fillStyle = "rgba("+r+","+g+","+b+","+(a/255)+")";
+        //ctx.fillRect( i, j, 1, 1 );
+      }
     }
+  console.log(imagedata.data.length)
+  ctx.putImageData(imagedata, 0, 0);
   }
+
+
 }
 
 function getVariant(id, callback) {
@@ -118,17 +330,21 @@ function getVariant(id, callback) {
   });
 }
 
-function getParameterByName(name, url) {
-    if (!url) url = window.location.href;
-    name = name.replace(/[\[\]]/g, "\\$&");
-    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
-        results = regex.exec(url);
-    if (!results) return null;
-    if (!results[2]) return '';
-    return decodeURIComponent(results[2].replace(/\+/g, " "));
+$("#togglesearch").mouseup(function() {
+  $("#forms").toggle()
+})
+
+function getVariants(query, callback) {
+  return $.ajax(baseurl + "variants/search", {
+      data : JSON.stringify(query),
+      contentType : 'application/json',
+      type : 'POST',
+      success: callback,
+      dataType: 'json'
+  });
 }
 
-$("#variantId").val(getParameterByName("v"));
+
 start();
 
 </script>
