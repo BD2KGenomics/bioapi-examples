@@ -52,41 +52,55 @@ JSON uses strings as keys for values that could be strings, numbers, or arrays a
 
 ## Examples
 
-Each example is provided with inline comments that explain what communication with a server is being performed and how those data are being  manipulated by our script.
+Please view each file's source for more details on usage.
 
-### hello_ga4gh.py
+### `python_scripts`
+
+#### hello_ga4gh.py
 
 Access a GA4GH reference server hosting bioinformatics data and see the basics of building a query.
 
-### hello_exac.py
+#### hello_exac.py
 
 Access an API hosting population genomics data and a query service for finding variants in a gene.
 
-### hello_nhanes.py
+#### hello_nhanes.py
 
 A demonstration of using the IRCT PIC-SURE API for NHANES data. It gathers patient blood pressure data by demographic.
 
-### hello_ga4gh_client.py
+#### hello_ga4gh_client.py
 
 Access a GA4GH reference server using a (provided) client, making some operations easier.
 
-### visualize_ga4gh.py
+#### visualize_ga4gh.py
 
 Get data from a remote web service and visualize it using matplotlib.
 
-# find_nonreference_samples_for_variant.py
+#### find_nonreference_samples_for_variant.py
 
 TODO
 
-# hello_ga4gh_brca1.py
+#### hello_ga4gh_brca1.py
 
 TODO
 
-### combine_apis.py
+#### combine_apis.py
 
 Use data from two web services to produce synthetic results.
 
-### simple_service.py
+#### simple_service.py
 
 Make the results of combining two APIs available as its own web service.
+
+### html
+
+#### 1kgenomes.html
+
+Visual demonstration of the variant calls matrix represented by a set of GA4GH variants.
+
+#### hello_ga4gh_d3.html
+
+Displays GA4GH sequence annotations as a force directed graph.
+
+#### speedtest.html
 
