@@ -3,3 +3,4 @@ requests==2.7.0
 numpy>=1.1
 matplotlib>=1.4.2
 Flask==0.10.1
+ga4gh>=0.2.2
