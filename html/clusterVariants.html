@@ -1,0 +1,64 @@
+<html>
+<head>
+  <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
+</head>
+<body>
+<script>
+var baseurl = "http://1kgenomes.ga4gh.org/"
+function getVariants(query, callback) {
+  return $.ajax(baseurl + "variants/search", {
+      data : JSON.stringify(query),
+      contentType : 'application/json',
+      type : 'POST',
+      success: callback,
+      dataType: 'json'
+  });
+}
+
+function b64EncodeUnicode(str) {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+        return String.fromCharCode('0x' + p1);
+    }));
+}
+
+function binaryToWords(str) { 
+    if(str.match(/[10]{8}/g)){
+        var wordFromBinary = str.match(/([10]{8}|\s+)/g).map(function(fromBinary){
+            return String.fromCharCode(parseInt(fromBinary, 2) );
+        }).join('');
+        return console.log(wordFromBinary);
+    }
+}
+
+var callSetArray = [];
+
+function callsToNumber(calls) {
+  var val = new Array(2504 * 2);
+  for (var i = 0; i < 2504 * 2; i++) {
+    val[i] = 0;
+  }
+  calls.forEach(function(call) {
+    var index = callSetArray.indexOf(call.callSetId);
+    val[index] = call.genotype[0];
+    val[index + 1] = call.genotype[1];
+  })
+  return b64EncodeUnicode(binaryToWords(val.join('')));
+}
+var query = {"variantSetId": "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ",
+    "start": 1241243,
+    "end": 12311232,
+    "referenceName": "1",
+"pageSize": 3
+};
+
+getVariants(query, function(res) {
+  // Build the callSetArray so we can guarantee order
+  res.variants[0].calls.forEach(function(call) {
+    callSetArray.push(call.callSetId);
+  });
+  res.variants.forEach(function(variant) {
+    console.log(callsToNumber(variant.calls));
+  });
+});
+
+</script>
