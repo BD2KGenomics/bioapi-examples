@@ -1,0 +1,36 @@
+<html>
+<head>
+  <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
+</head>
+<body>
+  <script>
+  var baseurl = "http://1kgenomes.ga4gh.org/";
+  
+  function getVariants(query, callback) {
+    return $.ajax(baseurl + "variants/search", {
+        data : JSON.stringify(query),
+        contentType : 'application/json',
+        type : 'POST',
+        success: callback,
+        dataType: 'json'
+    });
+  }
+  console.log('hi');
+  
+  var variantSetId = "WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ";
+  
+  var query = {
+    "variantSetId": variantSetId,
+    "referenceName": "1",
+    "start": 0,
+    "end": 123123123123
+  }
+  
+  function myCallback(response) {
+    console.log(response);
+  }
+  
+  getVariants(query, myCallback);
+  </script>
+</body>
+</html>

@@ -4,10 +4,10 @@
     <script src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
 </head>
 <body style="padding-left: 0%; padding-right: 0%; font-family: sans-serif; margin: 0; padding: 0">
-url<input type="text" id="url" placeholder="url" value="http://localhost:8000/">
-vsetid<input type="text" id="variantSetId" placeholder="variantSetId" value="WyJicmNhMSIsInZzIiwiMWt2Y2YgY29weSJd">
+url<input type="text" id="url" placeholder="url" value="http://1kgenomes.ga4gh.org/">
+vsetid<input type="text" id="variantSetId" placeholder="variantSetId" value="WyIxa2dlbm9tZXMiLCJ2cyIsInJlbGVhc2UiXQ">
 pagesize<input type="text" id="pageSize" placeholder="pageSize" value="10">
-threads<input type="text" id="threads" placeholder="threads" value="1">
+threads<input type="text" id="threads" placeholder="threads" value="10">
 <button id="go" onmouseup="start();">Go</button>
 <ul>
   <div id="avg"></div>
@@ -16,10 +16,9 @@ threads<input type="text" id="threads" placeholder="threads" value="1">
 <div id="cs"></div>
 <div id="tc"></div>
 <div id="datal"></div>
-<div id="done"></div>
 </ul>
 <script>
-var baseurl = "http://localhost:8000/";
+var baseurl = "http://1kgenomes.ga4gh.org/";
 var c = document.getElementById("c");
 var l = 300;//window.innerWidth;
 var threshold = 0.8 * l;
@@ -46,9 +45,9 @@ function pageVariants(query) {
   var d = (new Date()).getTime();
   return getVariants(query, function(res) {
     var t = (new Date()).getTime() - d;
-    //console.log("Got " + res.variants.length + " variants in " + t);
+    console.log("Got " + res.variants.length + " variants in " + t);
     datal += JSON.stringify(res).length;
-    //console.log(res.length);
+    console.log(res.length);
     if (avg.length > roll - 1){
       avg.shift()
     }
@@ -59,7 +58,7 @@ function pageVariants(query) {
     var cc = avg.reduce(function(prev, cur) {
       return (prev + cur);
     }) / avg.length;
-    //console.log(avg);
+    console.log(avg);
     $("#avg").html(Math.floor(cc) + "ms per request");
     res.variants.forEach(function(variant) {
       if (typeof variants[variant.id] === "undefined") {
@@ -67,7 +66,7 @@ function pageVariants(query) {
       }
       calls += variant.calls.length;
     })
-    var vsper = Math.floor(1000000 * Object.keys(variants).length / ((new Date()).getTime() - st)) / 1000;
+    var vsper = Math.floor(1000 * Object.keys(variants).length / ((new Date()).getTime() - st));
     var csper = Math.floor(1000 * calls / ((new Date()).getTime() - st));
     $("#vs").html(vsper + " variants per second");
     $("#tv").html(Object.keys(variants).length + " total variants");
@@ -82,7 +81,6 @@ function pageVariants(query) {
     } else {
       // assuming we are served in order
       console.log("done");
-      $("#done").html("Took " + ((new Date()).getTime() - st) + "ms to complete");
     }
   })
 }
@@ -109,55 +107,16 @@ function start() {
       "referenceName": "1",
       "pageSize": 1
     };
-  getAllCallSets({"variantSetId": variantSetId, pageSize: 100}, function(callSets) {
-    //console.log(callSets);
-    query['callSetIds'] = callSets;
-    console.log(query);
-    query['pageSize'] = pageSize;
-    pageVariants(query);
+    getVariants(query, function(res) {
+  callSetIds = res.variants[0].calls.map(function(call) {
+    return call.callSetId;
+  });
+  console.log(callSetIds);
+  query['pageSize'] = pageSize;
+  splitCall(query, threads, l);
   });
 }
 
-function getVariants(query, callback) {
-  return $.ajax(baseurl + "variants/search", {
-      data : JSON.stringify(query),
-      contentType : 'application/json',
-      type : 'POST',
-      success: callback,
-      dataType: 'json'
-  });
-}
-
-function getCallSets(query, callback) {
-  return $.ajax(baseurl + "callsets/search", {
-      data : JSON.stringify(query),
-      contentType : 'application/json',
-      type : 'POST',
-      success: callback,
-      dataType: 'json'
-  });
-}
-
-var callSets = []
-function getAllCallSets(query, callback) {
-  getCallSets(query, function(res) {
-    console.log(res)
-    if (res.nextPageToken) {
-      var nq = query;
-      nq.pageToken = res.nextPageToken;
-      console.log('calls')
-      console.log(res)
-      res.callSets.forEach(function(callSet) {
-        callSets.push(callSet.id);
-      })
-      setTimeout(function(){ getAllCallSets(nq, callback); }, 100);
-    } else {
-      setTimeout(function(){ callback(callSets); }, 100);
-      
-      console.log("done");
-    }
-  })
-}
 
 
   
