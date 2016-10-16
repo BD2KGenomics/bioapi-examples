@@ -1,7 +1,29 @@
 # Biomedicine API Examples
 
 ## Introduction
-Data sharing efforts and readily available computing resources are making bioinformatics over the Web possible. In the past, siloed data stores and obscure file formats made it difficult to synthesize and reproduce results between institutions. Here we present two biomedicine APIs, currently under development, and provide example usage. Some familiarity with python is expected.
+Data sharing efforts and readily available computing resources are making bioinformatics over the Web possible. In the past, siloed data stores and obscure file formats made it difficult to synthesize and reproduce results between institutions. Some familiarity with python is expected.
+
+There are 3 sections of example code in this repository.
+1. Python Notebooks - collection of python notebooks that demonstrate GA4GH APIs
+2. Python Scripts - A set of scripts that demonstrate biomedicine APIs that use GA4GH APIs
+3. Variant Browser - An example visualization of variants that uses GA4GH APIs
+
+## Python Notebooks
+ 
+*Get Started!*
+
+First install the ga4gh client module. It is best to do the install inside of a virtual environment.
+```
+virtualenv ga4gh-client
+source ga4gh-client/bin/activate
+pip install --no-cache-dir --pre ga4gh_client
+```
+
+This environment is suitable for running any of the python notebooks listed in the python_notebook directory. There is a directory of which GA4GH APIs are demonstrated by each example that can be found on the wiki https://github.com/BD2KGenomics/bioapi-examples/wiki
+
+
+## Python Scripts
+Here we present two biomedicine APIs, currently under development, and provide example usage. 
 
 *Get started!*
 
@@ -28,7 +50,7 @@ The REST API for ExAC has been developed as part of Harvard’s Patient-centered
 
 The GA4GH reference server hosts bioinformatics data using an HTTP API. These data are backed by BAM and VCF files. For these examples we will only be accessing a GA4GH server, but it is open source and eager individuals can create their own server instance using [these instructions](http://ga4gh-reference-implementation.readthedocs.org/en/latest/demo.html).
 
-## What is HTTP API
+## What is an HTTP API
 
 HTTP APIs allow web browsers and command line clients to use the same communication layer to transmit data to a server. A client can `GET` a resource from a server, `POST` a resource on a server, or `DELETE` amongst other things.
 
@@ -50,13 +72,9 @@ The documents that servers and clients pass back and forth are often in JavaScri
 
 JSON uses strings as keys for values that could be strings, numbers, or arrays and maps of more complex objects.
 
-## Examples
+## Python Examples
 
 Please view each file's source for more details on usage.
-
-### python_notebooks
-
-### `python_scripts`
 
 #### hello_ga4gh.py
 
@@ -94,7 +112,7 @@ Use data from two web services to produce synthetic results.
 
 Make the results of combining two APIs available as its own web service.
 
-### html
+### html Sample code
 
 #### 1kgenomes.html
 
