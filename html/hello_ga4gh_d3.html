@@ -12,49 +12,67 @@
 html, body, svg {
   background-color: black;
 }
-
+div.tooltip {	
+    position: absolute;			
+    text-align: center;			
+    width: 60px;					
+    height: 28px;					
+    padding: 2px;				
+    font: 12px sans-serif;		
+    background: lightsteelblue;	
+    border: 0px;		
+    border-radius: 8px;			
+    pointer-events: none;			
+}
 </style>
 <body>
 <script src="//d3js.org/d3.v3.min.js"></script>
 <script>
 var i = 0;
+// make a list of the gene names by doing a search on gene type
+
+// make a pull down to visualize the tree of a gene
+
 function loadpage(page){
-  d3.json("http://localhost:8000/features/search")
+  d3.json("http://1kgenomes.ga4gh.org/features/search")
       .header("Content-Type", "application/json")
-	.post(JSON.stringify({featureSetId: "YnJjYTE6Z2VuY29kZS52MjQuYW5ub3RhdGlvbg", referenceName: "chr1", start: 0, end: Math.pow(2,32) - 1, pageToken: page, parentId: "", featureTypes: [], pageSize: 100}),
+	.post(JSON.stringify({featureSetId: "WyIxa2dlbm9tZXMiLCJnZW5jb2RlX3YyNGxpZnQzNyJd",
+    pageToken: page,
+    geneSymbol: "BRCA1",
+    featureTypes: [],
+    pageSize: 50}),
         function(error, data) {
           // request next page
           i++;
-          console.log(data.features);
           data.features.forEach(addNode);
           addLinks(data.features);
-          if (data.nextPageToken && i < 5) {
+          if (data.nextPageToken && i < 30) {
             loadpage(data.nextPageToken)
+          } else {
+            console.log('done');
           }
       });
 }
 
 loadpage()
 
-function nodeById(nid) {
-  return nodes.filter(function(node){
-    return nid == node.id;
-  })[0]
-}
 
+var nbyid = {};
+function nodeById(nid) {
+  return nbyid[nid];
+}
+var edges = {};
 function addEdge(edge){
-  console.log(edge) 
-  nodes.forEach(function(n){
-    if (n.id == edge.target) {
-      links.push({source: n, target: nodeById(edge.source)});
-    }
-  })
-  start()
+  var n = nbyid[edge.source];
+  var t= nodeById(edge.target);
+  if (t !== undefined) {
+    edges[n.id + "-" + nodeById(edge.source).id] = true;
+    links.push({source: n.index, target: nodeById(edge.target).index});
+  }
 }
 
 function addLinks(features) {
-  console.log("ADDING LINK DAMMNI")
-  features.forEach(function(feature){
+  nodes.forEach(function(feature){
     feature.childIds.forEach(function(cid){
       addEdge({source: feature.id, target: cid})
     })
@@ -64,7 +82,7 @@ function addLinks(features) {
 function addNode(node){
   // console.log("adding node")
   // console.log(node.id)
-
+  nbyid[node.id] = node
   nodes.push(node);
   start()
 }
@@ -80,9 +98,11 @@ var nodes = [],
 var force = d3.layout.force()
     .nodes(nodes)
     .links(links)
-    .gravity(0.6)
-    .charge(-200)
+    .gravity(5)
+    .charge(-300)
     .linkDistance(10)
+    .linkStrength(2)
+    .chargeDistance(500)
     .size([width, height])
     .on("tick", tick);
 
@@ -95,6 +115,8 @@ var node = svg.selectAll(".node"),
 
 
 function start() {
+  var colors = d3.scale.category10();
+  colors.domain(['UTR', 'exon', 'transcript', 'stop_codon', 'CDS', 'gene'])
   link = link.data(force.links(), function(d) { return d.source.id + "-" + d.target.id; });
   link.enter().insert("line", ".link").attr("class", "link");
   link.exit().remove();
@@ -105,11 +127,20 @@ function start() {
     .append("g")
     .attr("class", "node")
 
-  node.append("text")
-    .attr("class", "nodetext")
-    .attr("dx", 12)
-    .attr("dy", ".35em")
-    .text(function(d) { return d.attributes.vals.gene_name[0] });
+  node.append("circle")
+    .attr("r", function(d) {
+      if (d.featureType.term == 'gene') {
+        return 10
+      } else {
+        return 3
+      }
+    })
+  .style('fill', function(d) {
+    return colors(d.featureType.term)
+  }).on("mouseup", function(d) {
+    console.log(d);
+  })
+  
   node.exit().remove();
 
   force.start();
@@ -118,7 +149,7 @@ function start() {
 function tick() {
   node.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
 
-  link.attr("x1", function(d) { return d.source.x; })
+  link.attr("x1", function(d) { return d.source.x })
       .attr("y1", function(d) { return d.source.y; })
       .attr("x2", function(d) { return d.target.x; })
       .attr("y2", function(d) { return d.target.y; });
