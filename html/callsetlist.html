@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<body>
+<script src="//d3js.org/d3.v3.min.js"></script>
+hi
+<script>
+var i = 0;
+
+var callsets = [];
+
+function getCallSets(page){
+  console.log('huh')
+  d3.json("http://1kgenomes.ga4gh.org/callsets/search")
+      .header("Content-Type", "application/json")
+	.post(JSON.stringify({variantSetId: "WyIxa2dlbm9tZXMiLCJ2cyIsInBoYXNlMy1yZWxlYXNlIl0",
+  pageToken: page}), function (err, res) {
+    res.callSets.forEach(function(cs) {
+      callsets.push(cs);
+      document.write('<a href="/genegraphs.html?callSetId=' + cs.id + '">' + cs.name + '</a><br />');
+    })
+    if (res.nextPageToken) {
+      getCallSets(res.nextPageToken);
+    } else {
+      console.log('callsets')
+      console.log(callsets);
+    }
+  })
+}
+
+getCallSets();
+</script>
