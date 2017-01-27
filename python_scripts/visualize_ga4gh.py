@@ -6,11 +6,11 @@
 
 # In addition to the GA4GH client we need our plotting libraries.
 
-import ga4gh.client as client
+from ga4gh.client import client
 import numpy as np
 import matplotlib.pyplot as plt
 
-BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-example-data/"
+BASE_URL = "http://1kgenomes.ga4gh.org"
 
 def main():
     # First, instantiate an HTTP client using the BASE_URL.
@@ -21,17 +21,17 @@ def main():
 
     # We can get the first item of an iterator using `.next()`.
 
-    dataset = c.searchDatasets().next()
+    dataset = c.search_datasets().next()
 
-    variant_set = c.searchVariantSets(dataset.id).next()
+    variant_set = c.search_variant_sets(dataset.id).next()
 
     # We now collect the variants in that variant set.
 
-    variants = c.searchVariants(
+    variants = c.search_variants(
         variant_set.id,         # The ID of the variantSet
         start=0,                # Start position
-        end=2**32,              # End position
-        referenceName="1")      # chrom
+        end=100000,             # End position
+        reference_name="1")      # chrom
 
     # And copy them into `variant_list`
 
@@ -48,8 +48,8 @@ def main():
     alt_lengths = []
 
     for variant in variant_list:
-        ref_lengths.append(len(variant.referenceBases))
-        for base in variant.alternateBases:
+        ref_lengths.append(len(variant.reference_bases))
+        for base in variant.alternate_bases:
             alt_lengths.append(len(base))
 
     print(str(len(variant_list)) + " variants.")
