@@ -5,7 +5,7 @@ import sys
 
 
 from ga4gh.client import client
-c = client.HttpClient("http://brcaexchange-dev.cloudapp.net:9004/data/ga4gh/v0.6.0a7/")
+c = client.HttpClient("http://brcaexchange.org/backend/data/ga4gh/v0.6.0a7/")
 
 dataset = c.get_dataset(dataset_id="brca")
 

@@ -21,7 +21,7 @@ import json
 # remote server. It allows us to compose more complicated
 # requests by adding to the end of the string.
 
-BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-count1-data/"
+BASE_URL = "http://1kgenomes.ga4gh.org/"
 
 # This global points the specific "endpoint" that will
 # handle our request.
@@ -152,7 +152,7 @@ def main():
             variants.append(variant)
 
 
-    # Let's take just the first variant, and obtain the 
+    # Let's take just the first variant, and obtain the
     # non-reference samples:
 
     variant = variants[0]

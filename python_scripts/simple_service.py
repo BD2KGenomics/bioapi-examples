@@ -38,7 +38,7 @@ def echo_route(echostring):
 # `combine_apis.py`.
 
 EXAC_BASE_URL = "http://exac.hms.harvard.edu/rest/"
-GA4GH_BASE_URL = "http://ga4gh-a1.westus.cloudapp.azure.com/ga4gh-count1-data/"
+GA4GH_BASE_URL = "http://1kgenomes.ga4gh.org/"
 
 @app.route('/gene/<gene_name>')
 def gene_route(gene_name):
@@ -48,11 +48,11 @@ def gene_route(gene_name):
     # Note that we aren't handling cases when the gene isn't found. The ExAC
     # API uses redirects to locate the gene of interest. Better error handling
     # is left as an exercise.
-    
+
     print("Looking for " + str(gene_name))
-    
+
     print("If this hangs forever ctrl-c to quit :)")
-    
+
     response = requests.get(
         EXAC_BASE_URL + "awesome?query=" + gene_name + "&service=variants_in_gene")
 
@@ -64,14 +64,14 @@ def gene_route(gene_name):
 
     # As in `combine_apis` we'll get all the variants from the GA4GH
     # variant set.
-    
-    # We can refine our search by getting the range of positions 
+
+    # We can refine our search by getting the range of positions
     # from the ExAC variants.
-    
+
     min_start = 2**32
     max_start = 0
     chrom = "1"
-    
+
     for variant in exac_variants:
         if variant['pos'] > max_start:
             max_start = variant['pos']
