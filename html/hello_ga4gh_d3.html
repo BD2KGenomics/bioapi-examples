@@ -18,21 +18,21 @@ div {position: absolute; top:0px; color: white;
 html, body, svg {
   background-color: black;
   border: 0px;
-  padding: 0x;
+  padding: 0px;
   margin: 0px;
   color: white;
 }
-div.tooltip {	
-    position: absolute;			
-    text-align: center;			
-    width: 60px;					
-    height: 28px;					
-    padding: 2px;				
-    font: 12px sans-serif;		
-    background: lightsteelblue;	
-    border: 0px;		
-    border-radius: 8px;			
-    pointer-events: none;			
+div.tooltip {
+    position: absolute;
+    text-align: center;
+    width: 60px;
+    height: 28px;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: lightsteelblue;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
 }
 </style>
 <body>
@@ -71,7 +71,7 @@ function loadpage(page){
     pageToken: page,
     geneSymbol: getParameterByName("geneSymbol"),
     featureTypes: [],
-    pageSize: 50}),
+    pageSize: 500}),
         function(error, data) {
           // request next page
           i++;
@@ -233,7 +233,7 @@ function start() {
         } else {
           return 2;
         }
-        
+
       }
     })
   .style('fill', function(d) {
@@ -241,14 +241,14 @@ function start() {
   }).on("mouseup", function(d) {
     div.html("<a href=\"http://www.ensembl.org/Multi/Search/Results?q=" + d.name + ";site=ensembl\" target=\"_new\">" + d.name + ", " + d.featureType.term + "</a>");
   })
-  
+
   node.exit().remove();
 
   force.start();
 }
 
 function tick() {
-  node.attr("transform", function(d) { 
+  node.attr("transform", function(d) {
     return "translate(" + d.x + "," + d.y + ")"; });
 
   link.attr("x1", function(d) { return d.source.x })

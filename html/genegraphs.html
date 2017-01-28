@@ -1,7 +1,59 @@
 <html>
 <script src="//d3js.org/d3.v3.min.js"></script>
+<style>
+html,body {
+  border: 0px;
+  padding: 0px;
+}
+iframe {
+  border: 0px;
+  padding: 0px;
+  width: 100%;
+  height: 800px;
+}
+</style>
 <body style="padding: 0px; margin: 0px">
 <script>
+var i = 0;
+
+var callsets = [];
+
+function onchange() {
+	selectValue = d3.select('select').property('value')
+	window.location.href = "/genegraphs.html?callSetId=" + selectValue;
+};
+
+var select = d3.select('body')
+  .append('select')
+  .attr('class','select')
+  .on('change',onchange);
+function getCallSets(page){
+  console.log('huh')
+  d3.json("http://1kgenomes.ga4gh.org/callsets/search")
+      .header("Content-Type", "application/json")
+	.post(JSON.stringify({variantSetId: "WyIxa2dlbm9tZXMiLCJ2cyIsInBoYXNlMy1yZWxlYXNlIl0",
+  pageToken: page}), function (err, res) {
+    //res.callSets.forEach(function(cs) {
+      //callsets.push(cs);
+      callsets = callsets.concat(res.callSets);
+
+      select.selectAll('option')
+        .data(callsets).enter()
+        .append('option')
+        .attr('value', function(cs) { return cs.id; })
+        .html(function(cs) { return cs.name; });
+      //document.write('<a href="/genegraphs.html?callSetId=' + cs.id + '">' + cs.name + '</a><br />');
+    //})
+    if (res.nextPageToken) {
+      getCallSets(res.nextPageToken);
+    } else {
+      console.log('callsets')
+      console.log(callsets);
+    }
+  })
+}
+
+getCallSets();
   function getParameterByName(name, url) {
       if (!url) {
         url = window.location.href;
@@ -20,16 +72,16 @@
         .header("Content-Type", "application/json")
   	.post(JSON.stringify({featureSetId: "WyIxa2dlbm9tZXMiLCJnZW5jb2RlX3YyNGxpZnQzNyJd",
       pageToken: page,
+      geneSymbol: "BRCA1",
       featureTypes: ['gene'],
     pageSize: 50}), function (err, res) {
       res.features.forEach(function(fe) {
-        symbols.push(fe.geneSymbol);
-        if (fe.childIds.length > 20 && i < 5) {
-          i++;
-          document.write('<h3>' + fe.geneSymbol + '</h3>');
-          document.write('<iframe src="/hello_ga4gh_d3.html?geneSymbol=' + fe.geneSymbol + '&callSetId=' + getParameterByName('callSetId') + '" width=100% height=600 ></iframe>')
-        }
-        
+        d3.select('body').append('iframe')
+          .attr('src', function() {
+            return "/hello_ga4gh_d3.html?geneSymbol=" + fe.geneSymbol + "&callSetId=" + getParameterByName('callSetId') + "&z=" + Math.random();
+          })
+        //}
+
       })
       if (res.nextPageToken) {
         getGeneSymbols(res.nextPageToken);
