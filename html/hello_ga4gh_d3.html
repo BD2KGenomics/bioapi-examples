@@ -2,69 +2,169 @@
 <meta charset="utf-8">
 <style>
 
-.link { stroke: white; }
+.link { stroke: #333; }
 .nodetext {
 	font-size: 6pt;
   fill: white;
   pointer-events: none; font: 10px sans-serif; stroke-width: auto;}
 
+div {position: absolute; top:0px; color: white;
+  background: white; width:100%;
+  padding: 10px;
+  text-align: center;
+  font-size: 8pt;
+  font-family: sans-serif;}
 
 html, body, svg {
   background-color: black;
+  border: 0px;
+  padding: 0px;
+  margin: 0px;
+  color: white;
 }
-
+div.tooltip {
+    position: absolute;
+    text-align: center;
+    width: 60px;
+    height: 28px;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: lightsteelblue;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+}
 </style>
 <body>
 <script src="//d3js.org/d3.v3.min.js"></script>
 <script>
 var i = 0;
-function loadpage(page){
-  d3.json("http://localhost:8000/features/search")
+
+
+var symbols = [];
+
+function getGeneSymbols(page){
+  d3.json("http://1kgenomes.ga4gh.org/features/search")
       .header("Content-Type", "application/json")
-	.post(JSON.stringify({featureSetId: "YnJjYTE6Z2VuY29kZS52MjQuYW5ub3RhdGlvbg", referenceName: "chr1", start: 0, end: Math.pow(2,32) - 1, pageToken: page, parentId: "", featureTypes: [], pageSize: 100}),
+	.post(JSON.stringify({featureSetId: "WyIxa2dlbm9tZXMiLCJnZW5jb2RlX3YyNGxpZnQzNyJd",
+    pageToken: page,
+    featureTypes: ['gene'],
+  pageSize: 50}), function (err, res) {
+    res.features.forEach(function(fe) {
+      symbols.push(fe.geneSymbol);
+    })
+    if (res.nextPageToken) {
+      getGeneSymbols(res.nextPageToken);
+    } else {
+      console.log('symbols')
+      console.log(symbols);
+    }
+  })
+}
+
+getGeneSymbols()
+
+function loadpage(page){
+  d3.json("http://1kgenomes.ga4gh.org/features/search")
+      .header("Content-Type", "application/json")
+	.post(JSON.stringify({featureSetId: "WyIxa2dlbm9tZXMiLCJnZW5jb2RlX3YyNGxpZnQzNyJd",
+    pageToken: page,
+    geneSymbol: getParameterByName("geneSymbol"),
+    featureTypes: [],
+    pageSize: 500}),
         function(error, data) {
           // request next page
           i++;
-          console.log(data.features);
           data.features.forEach(addNode);
           addLinks(data.features);
-          if (data.nextPageToken && i < 5) {
+          if (data.nextPageToken) {
             loadpage(data.nextPageToken)
+          } else {
+            console.log('done');
           }
       });
 }
 
 loadpage()
 
-function nodeById(nid) {
-  return nodes.filter(function(node){
-    return nid == node.id;
-  })[0]
-}
 
+var nbyid = {};
+function nodeById(nid) {
+  return nbyid[nid];
+}
+var edges = {};
 function addEdge(edge){
-  console.log(edge) 
-  nodes.forEach(function(n){
-    if (n.id == edge.target) {
-      links.push({source: n, target: nodeById(edge.source)});
-    }
-  })
-  start()
+  var n = nbyid[edge.source];
+  var t= nodeById(edge.target);
+  if (t !== undefined) {
+    edges[n.id + "-" + nodeById(edge.source).id] = true;
+    links.push({source: n.index, target: nodeById(edge.target).index});
+  }
 }
 
 function addLinks(features) {
-  console.log("ADDING LINK DAMMNI")
-  features.forEach(function(feature){
+  nodes.forEach(function(feature){
     feature.childIds.forEach(function(cid){
       addEdge({source: feature.id, target: cid})
     })
   })
 }
 
+var calls = [];
+
+function getCalls(start, end, referenceName, callSetId, page) {
+  d3.json("http://1kgenomes.ga4gh.org/variants/search")
+      .header("Content-Type", "application/json")
+	.post(JSON.stringify({
+    start: start,
+    end: end,
+    pageToken: page,
+    referenceName: referenceName.replace('chr', ''),
+    variantSetId: "WyIxa2dlbm9tZXMiLCJ2cyIsInBoYXNlMy1yZWxlYXNlIl0",
+    callSetIds: [callSetId]}),
+        function(error, data) {
+          // request next page
+          data.variants.forEach(function(v) {
+            v.calls.forEach(function(c) {
+              calls.push(c);
+              if (c.genotype[0] || c.genotype[1]) {
+                nodes.forEach(function(node) {
+                  if (node.start < v.start && node.end > v.end) {
+                    node.call = c.genotype[0] + c.genotype[1];
+                  }
+                })
+              }
+            });
+          })
+          if (data.nextPageToken) {
+            getCalls(start, end, referenceName, callSetId, data.nextPageToken)
+          } else {
+            console.log('done');
+            console.log(calls);
+          }
+      });
+}
+
+function getParameterByName(name, url) {
+    if (!url) {
+      url = window.location.href;
+    }
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
 function addNode(node){
   // console.log("adding node")
   // console.log(node.id)
-
+  var feature = node;
+  if (node.featureType.term == 'gene') {
+    getCalls(feature.start, feature.end, feature.referenceName, getParameterByName("callSetId"), null)
+  }
+  nbyid[node.id] = node
   nodes.push(node);
   start()
 }
@@ -77,14 +177,28 @@ var color = d3.scale.category10();
 var nodes = [],
     links = [];
 
+
+
+function dragstart(d) {
+  d3.select(this).classed("fixed", d.fixed = true);
+}
+
 var force = d3.layout.force()
     .nodes(nodes)
     .links(links)
-    .gravity(0.6)
-    .charge(-200)
-    .linkDistance(10)
+    .gravity(.3)
+    .charge(function(d) {
+      return -100;
+    })
+    .linkDistance(100)
+    .linkStrength(0.8)
+    .chargeDistance(500)
+    .friction(0.8)
     .size([width, height])
     .on("tick", tick);
+
+var drag = force.drag()
+    .on("dragstart", dragstart);
 
 var svg = d3.select("body").append("svg")
     .attr("width", width)
@@ -93,8 +207,11 @@ var svg = d3.select("body").append("svg")
 var node = svg.selectAll(".node"),
     link = svg.selectAll(".link");
 
+var div = d3.select("body").append('div')
 
 function start() {
+  var colors = d3.scale.category10();
+  colors.domain(['UTR', 'exon', 'transcript', 'stop_codon', 'CDS', 'gene'])
   link = link.data(force.links(), function(d) { return d.source.id + "-" + d.target.id; });
   link.enter().insert("line", ".link").attr("class", "link");
   link.exit().remove();
@@ -104,21 +221,37 @@ function start() {
     .enter()
     .append("g")
     .attr("class", "node")
+    .call(drag)
 
-  node.append("text")
-    .attr("class", "nodetext")
-    .attr("dx", 12)
-    .attr("dy", ".35em")
-    .text(function(d) { return d.attributes.vals.gene_name[0] });
+  node.append("circle")
+    .attr("r", function(d) {
+      if (d.featureType.term == 'gene') {
+        return 2
+      } else {
+        if ('call' in d) {
+          return 2 + Number(d.call) * 5;
+        } else {
+          return 2;
+        }
+
+      }
+    })
+  .style('fill', function(d) {
+    return colors(d.featureType.term)
+  }).on("mouseup", function(d) {
+    div.html("<a href=\"http://www.ensembl.org/Multi/Search/Results?q=" + d.name + ";site=ensembl\" target=\"_new\">" + d.name + ", " + d.featureType.term + "</a>");
+  })
+
   node.exit().remove();
 
   force.start();
 }
 
 function tick() {
-  node.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+  node.attr("transform", function(d) {
+    return "translate(" + d.x + "," + d.y + ")"; });
 
-  link.attr("x1", function(d) { return d.source.x; })
+  link.attr("x1", function(d) { return d.source.x })
       .attr("y1", function(d) { return d.source.y; })
       .attr("x2", function(d) { return d.target.x; })
       .attr("y2", function(d) { return d.target.y; });
